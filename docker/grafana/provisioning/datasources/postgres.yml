@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: heartbeat
+    type: postgres
+    uid: heartbeat-pg
+    access: proxy
+    # container-to-container, so the internal port, not the 5434 host mapping
+    url: postgres:5432
+    database: heartbeat
+    user: ${PG_USER}
+    secureJsonData:
+      password: ${PG_PASSWORD}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false
+    isDefault: true
+    editable: false

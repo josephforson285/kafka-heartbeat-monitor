@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: heartbeat
+    type: file
+    folder: Heartbeat
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
