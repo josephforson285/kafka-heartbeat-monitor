@@ -22,6 +22,10 @@ flowchart LR
 
 ## Quick start
 
+New to this repository? [DEMO.md](DEMO.md) is a guided walkthrough that runs every
+part of the system end to end, with the output you should expect at each step.
+
+
 Requires Docker and Python 3.11+.
 
 ```bash
