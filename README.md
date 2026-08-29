@@ -222,8 +222,10 @@ HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbea
 HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
 ```
 
-CI runs all 54 against a real PostgreSQL service on every push. End-to-end behaviour
-is covered by the demo script instead.
+CI runs all 54 against a real PostgreSQL service, then brings up this repository's
+own `docker-compose.yml` and runs `scripts/demo_failure_modes.sh` against it. So the
+failure-mode claims below are re-proven on every push rather than asserted once —
+and the logs are attached to each run as a build artifact.
 
 ## Layout
 

@@ -29,7 +29,16 @@ check()  { if [ "$2" = "$3" ]; then printf 'PASS  %s (%s)\n' "$1" "$2"; else pri
 banner "reset"
 docker compose down -v >/dev/null 2>&1 || true
 docker compose up -d >/dev/null 2>&1
-until [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -eq 3 ]; do sleep 2; done
+# bounded, so an unhealthy container fails the run instead of hanging it
+for _ in $(seq 90); do
+  [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -eq 3 ] && break
+  sleep 2
+done
+if [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -ne 3 ]; then
+  printf 'stack did not become healthy:\n'
+  docker compose ps
+  exit 1
+fi
 $HB create-topics
 
 

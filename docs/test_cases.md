@@ -10,7 +10,12 @@ script covers what only appears with a real broker and a real crash.
 ```
 
 The 11 integration tests are skipped unless pointed at a disposable database, since
-they truncate their tables. CI runs all 54 on every push.
+they truncate their tables.
+
+CI runs all three layers on every push: the unit tests, the integration tests against
+a PostgreSQL service, and then the demo script against the repository's own
+`docker-compose.yml`. The end-to-end results below are therefore re-proven per commit,
+not recorded once — each run attaches its logs as a build artifact.
 
 ```bash
 HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbeat password=..." \

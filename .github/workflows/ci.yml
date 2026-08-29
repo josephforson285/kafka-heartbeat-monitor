@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # A real PostgreSQL. The dedup guarantee lives in the DDL — ON CONFLICT, the
     # primary key, the CHECK constraints — and a mock cannot tell you whether any
@@ -67,3 +68,41 @@ jobs:
 
       - name: Check the demo script parses
         run: bash -n scripts/demo_failure_modes.sh
+
+  # Brings up the real docker-compose.yml and runs the real proof script, rather
+  # than a CI-shaped approximation of either. If this job is green, the pipeline
+  # a reviewer clones actually survives a killed consumer, a rebalance and a
+  # poison message — it is not a claim in the README.
+  pipeline:
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure secrets
+        run: sed 's/change_me/ci_password/' .env.example > .env
+
+      - name: Install into the venv the scripts expect
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -e .
+
+      - name: Run the failure-mode proofs
+        run: ./scripts/demo_failure_modes.sh
+
+      - name: Collect the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output
+          path: docs/sample_output/
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
