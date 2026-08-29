@@ -77,30 +77,34 @@ def run_producer(
     started = time.monotonic()
     due = started
     sent = 0
-    with shutdown_on_signal() as stop:
-        while not stop:
-            if count is not None and sent >= count:
-                break
-            if duration is not None and time.monotonic() - started >= duration:
-                break
+    # flush in a finally: produce() only buffers locally, so failing out of the loop
+    # without it discards whatever had not reached a broker yet, silently
+    try:
+        with shutdown_on_signal() as stop:
+            while not stop:
+                if count is not None and sent >= count:
+                    break
+                if duration is not None and time.monotonic() - started >= duration:
+                    break
 
-            producer.send(generator.next_reading())
-            sent += 1
+                producer.send(generator.next_reading())
+                sent += 1
 
-            # schedule against a fixed clock so send latency does not drift the rate
-            due += interval
-            delay = due - time.monotonic()
-            if delay > 0:
-                time.sleep(delay)
+                # schedule against a fixed clock so send latency does not drift the rate
+                due += interval
+                delay = due - time.monotonic()
+                if delay > 0:
+                    time.sleep(delay)
 
-    if stop:
-        log.info("shutdown requested, flushing")
-    unflushed = producer.close()
-    log.info(
-        "sent=%d delivered=%d failed=%d unflushed=%d",
-        sent,
-        producer.delivered,
-        producer.failed,
-        unflushed,
-    )
+            if stop:
+                log.info("shutdown requested, flushing")
+    finally:
+        unflushed = producer.close()
+        log.info(
+            "sent=%d delivered=%d failed=%d unflushed=%d",
+            sent,
+            producer.delivered,
+            producer.failed,
+            unflushed,
+        )
     return 1 if producer.failed or unflushed else 0
