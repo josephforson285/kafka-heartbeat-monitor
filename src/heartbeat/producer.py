@@ -60,15 +60,17 @@ def run_producer(
     *,
     count: int | None = None,
     duration: float | None = None,
+    rate: float | None = None,
 ) -> int:
     generator = HeartRateGenerator(config.generator, config.bands)
     producer = HeartbeatProducer(config)
-    interval = 1.0 / config.generator.readings_per_second
+    readings_per_second = rate or config.generator.readings_per_second
+    interval = 1.0 / readings_per_second
 
     log.info(
         "producing to %s at %.1f readings/s across %d customers",
         config.raw_topic.name,
-        config.generator.readings_per_second,
+        readings_per_second,
         config.generator.customers,
     )
 

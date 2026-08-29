@@ -58,7 +58,9 @@ def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
 
 
 def cmd_produce(config: Config, args: argparse.Namespace) -> int:
-    return run_producer(config, count=args.count, duration=args.duration)
+    return run_producer(
+        config, count=args.count, duration=args.duration, rate=args.rate
+    )
 
 
 def cmd_consume(config: Config, args: argparse.Namespace) -> int:
@@ -86,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
     produce = sub.add_parser("produce", help="stream synthetic readings into Kafka")
     produce.add_argument("--count", type=int, help="stop after N readings")
     produce.add_argument("--duration", type=float, help="stop after N seconds")
+    produce.add_argument("--rate", type=float, help="override readings per second")
     produce.set_defaults(handler=cmd_produce)
 
     consume = sub.add_parser("consume", help="write readings from Kafka into PostgreSQL")
