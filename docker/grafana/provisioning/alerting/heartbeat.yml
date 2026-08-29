@@ -1,0 +1,46 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: vitals
+    folder: Heartbeat
+    interval: 1m
+    rules:
+      - uid: critical-heart-rate
+        title: Patient in critical heart rate range
+        # counts patients, not readings: one person sustained above the critical
+        # threshold matters more than a burst of readings from the same sensor
+        condition: threshold
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: At least one patient has been above the critical heart rate threshold in the last 5 minutes
+        data:
+          - refId: patients
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: heartbeat-pg
+            model:
+              refId: patients
+              format: table
+              editorMode: code
+              rawQuery: true
+              rawSql: |
+                SELECT count(DISTINCT customer_id) AS value
+                FROM heartbeat_readings
+                WHERE event_time > now() - interval '5 minutes'
+                  AND hr_class = 'critical'
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              expression: patients
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
