@@ -45,7 +45,8 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest -q
+        # through the Makefile, so a target that rots fails the build
+        run: make test
 
       - name: Validate the compose file
         env:
@@ -93,8 +94,11 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install -q -e .
 
+      - name: Check the Makefile targets resolve
+        run: make help
+
       - name: Run the failure-mode proofs
-        run: ./scripts/demo_failure_modes.sh
+        run: make proofs
 
       - name: Collect the evidence
         if: always()
