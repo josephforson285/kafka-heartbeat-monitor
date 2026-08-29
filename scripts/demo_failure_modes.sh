@@ -133,4 +133,13 @@ printf '\nmessages forwarded to the dead-letter topic:\n'
 docker compose exec -T kafka /opt/kafka/bin/kafka-get-offsets.sh \
   --bootstrap-server localhost:9092 --topic heartbeat.dlq | sed 's/^/  /'
 
+banner "database contents"
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d heartbeat \
+  -c "\d heartbeat_readings" \
+  -c "SELECT hr_class, count(*), min(heart_rate), max(heart_rate) FROM heartbeat_readings GROUP BY 1 ORDER BY 2 DESC;" \
+  -c "SELECT customer_id, event_time, heart_rate, hr_class, kafka_partition, kafka_offset FROM heartbeat_readings ORDER BY event_time DESC LIMIT 10;" \
+  -c "SELECT reason, count(*) FROM heartbeat_rejects GROUP BY 1 ORDER BY 2 DESC;" \
+  -c "SELECT count(*) AS total_readings, count(DISTINCT event_id) AS distinct_event_ids FROM heartbeat_readings;" \
+  | tee "$OUT/database-contents.txt"
+
 banner "all proofs passed"

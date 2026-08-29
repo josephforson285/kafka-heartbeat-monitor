@@ -172,7 +172,16 @@ missing field(s): event_id, event_time, heart_rate
 not valid JSON  (invalid UTF-8)
 ```
 
-Logs from these runs are in [docs/sample_output/](docs/sample_output/).
+Logs from these runs are in [docs/sample_output/](docs/sample_output/), alongside
+[database-contents.txt](docs/sample_output/database-contents.txt) — the table
+definition, the classification breakdown, recent rows with the partition and offset
+they came from, and the count that matters:
+
+```
+ total_readings | distinct_event_ids
+----------------+--------------------
+           5890 |               5890
+```
 
 Consumer lag, at any time:
 

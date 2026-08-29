@@ -1,0 +1,60 @@
+                      Table "public.heartbeat_readings"
+     Column      |           Type           | Collation | Nullable | Default 
+-----------------+--------------------------+-----------+----------+---------
+ event_id        | uuid                     |           | not null | 
+ customer_id     | text                     |           | not null | 
+ event_time      | timestamp with time zone |           | not null | 
+ heart_rate      | smallint                 |           | not null | 
+ hr_class        | text                     |           | not null | 
+ ingested_at     | timestamp with time zone |           | not null | now()
+ kafka_partition | integer                  |           | not null | 
+ kafka_offset    | bigint                   |           | not null | 
+Indexes:
+    "heartbeat_readings_pkey" PRIMARY KEY, btree (event_id)
+    "idx_readings_alerting" btree (event_time DESC) WHERE hr_class <> 'normal'::text
+    "idx_readings_customer_time" btree (customer_id, event_time DESC)
+    "idx_readings_time" btree (event_time DESC)
+Check constraints:
+    "heart_rate_plausible" CHECK (heart_rate >= 20 AND heart_rate <= 250)
+    "hr_class_known" CHECK (hr_class = ANY (ARRAY['bradycardia'::text, 'normal'::text, 'tachycardia'::text, 'critical'::text]))
+
+  hr_class   | count | min | max 
+-------------+-------+-----+-----
+ normal      |  4747 |  60 |  95
+ bradycardia |   989 |  20 |  59
+ tachycardia |    96 | 102 | 180
+ critical    |    58 | 186 | 248
+(4 rows)
+
+ customer_id |          event_time           | heart_rate |  hr_class   | kafka_partition | kafka_offset 
+-------------+-------------------------------+------------+-------------+-----------------+--------------
+ cust-0042   | 2026-08-29 12:43:57.011448+00 |         62 | normal      |               2 |         2629
+ cust-0033   | 2026-08-29 12:43:57.006433+00 |         71 | normal      |               2 |         2628
+ cust-0024   | 2026-08-29 12:43:57.001419+00 |         81 | normal      |               2 |         2627
+ cust-0045   | 2026-08-29 12:43:56.996424+00 |         73 | normal      |               0 |         1341
+ cust-0015   | 2026-08-29 12:43:56.991459+00 |         53 | bradycardia |               2 |         2626
+ cust-0016   | 2026-08-29 12:43:56.986466+00 |         75 | normal      |               2 |         2625
+ cust-0021   | 2026-08-29 12:43:56.981423+00 |         67 | normal      |               1 |         2027
+ cust-0043   | 2026-08-29 12:43:56.976433+00 |         83 | normal      |               1 |         2026
+ cust-0034   | 2026-08-29 12:43:56.971429+00 |         80 | normal      |               2 |         2624
+ cust-0047   | 2026-08-29 12:43:56.966424+00 |         58 | bradycardia |               2 |         2623
+(10 rows)
+
+                          reason                           | count 
+-----------------------------------------------------------+-------
+ heart_rate 0 outside plausible range 20-250               |    28
+ heart_rate -1 outside plausible range 20-250              |    24
+ heart_rate 999 outside plausible range 20-250             |    23
+ heart_rate 511 outside plausible range 20-250             |    21
+ heart_rate 300 outside plausible range 20-250             |    14
+ not valid JSON: Expecting value: line 1 column 1 (char 0) |     2
+ missing field(s): event_id, event_time, heart_rate        |     1
+ heart_rate must be an integer, got 'seventy'              |     1
+ event_id is not a UUID: 'not-a-uuid'                      |     1
+(9 rows)
+
+ total_readings | distinct_event_ids 
+----------------+--------------------
+           5890 |               5890
+(1 row)
+

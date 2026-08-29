@@ -6,6 +6,7 @@ import argparse
 import logging
 
 import psycopg
+from confluent_kafka import KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
 
 from .config import SCHEMA_SQL_PATH, Config, ConfigError, DEFAULT_CONFIG_PATH
@@ -110,7 +111,22 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         log.error("%s", exc)
         return 2
-    return args.handler(config, args)
+
+    # a missing stack is the likeliest way this is run wrong; say so instead of
+    # printing a driver traceback
+    try:
+        return args.handler(config, args)
+    except psycopg.OperationalError as exc:
+        _unreachable("PostgreSQL", str(exc).strip().splitlines()[0])
+        return 3
+    except KafkaException as exc:
+        _unreachable("Kafka", exc.args[0].str() if exc.args else str(exc))
+        return 3
+
+
+def _unreachable(service: str, detail: str) -> None:
+    log.error("cannot reach %s: %s", service, detail)
+    log.error("is the stack running? start it with: docker compose up -d")
 
 
 if __name__ == "__main__":

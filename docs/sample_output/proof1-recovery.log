@@ -1,5 +1,5 @@
-03:05:43 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof1
-03:05:47 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-03:05:51 INFO    heartbeat.consumer   no messages left, stopping
-03:05:51 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-03:05:51 INFO    heartbeat.consumer   consumed=1313 inserted=1288 duplicates=0 rejected=25
+14:43:28 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof1
+14:43:31 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+14:43:36 INFO    heartbeat.consumer   no messages left, stopping
+14:43:36 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+14:43:36 INFO    heartbeat.consumer   consumed=1276 inserted=1252 duplicates=0 rejected=24

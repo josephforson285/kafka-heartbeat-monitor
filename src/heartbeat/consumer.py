@@ -20,6 +20,7 @@ class Stats:
     inserted: int = 0
     duplicates: int = 0
     rejected: int = 0
+    broker_errors: int = 0
 
 
 def run_consumer(
@@ -51,52 +52,62 @@ def run_consumer(
     )
 
     idle_polls = 0
-    with shutdown_on_signal() as stop:
-        while not stop:
-            messages = consumer.consume(
-                config.consumer.batch_size, config.consumer.batch_timeout_seconds
-            )
-            if not messages:
-                idle_polls += 1
-                # an empty poll before the group has given us anything means the
-                # rebalance is still pending, not that the topic is drained. A
-                # consumer killed with SIGKILL holds its partitions until the
-                # broker's session timeout expires.
-                if drain and assignment and idle_polls > 1:
-                    log.info("no messages left, stopping")
+    # close in a finally: leaving the group cleanly on the way out of an error is
+    # what stops the next consumer waiting out session.timeout.ms for our partitions
+    try:
+        with shutdown_on_signal() as stop:
+            while not stop:
+                messages = consumer.consume(
+                    config.consumer.batch_size, config.consumer.batch_timeout_seconds
+                )
+                if not messages:
+                    idle_polls += 1
+                    # an empty poll before the group has given us anything means the
+                    # rebalance is still pending, not that the topic is drained. A
+                    # consumer killed with SIGKILL holds its partitions until the
+                    # broker's session timeout expires.
+                    if drain and assignment and idle_polls > 1:
+                        log.info("no messages left, stopping")
+                        break
+                    if not assignment and idle_polls % 5 == 0:
+                        log.info("waiting for a partition assignment")
+                    continue
+
+                idle_polls = 0
+                readings, rejects, poison = _sort_batch(messages, config, stats)
+                inserted, rejected = store.write_batch(readings, rejects)
+
+                # offsets move only now. The rows are durable, so a crash before
+                # this point replays the batch rather than losing it.
+                consumer.commit(asynchronous=False)
+
+                stats.inserted += inserted
+                stats.duplicates += len(readings) - inserted
+                stats.rejected += rejected
+                _forward_to_dlq(dlq, config.dlq_topic.name, poison)
+
+                if max_messages is not None and stats.consumed >= max_messages:
                     break
-                if not assignment and idle_polls % 5 == 0:
-                    log.info("waiting for a partition assignment")
-                continue
 
-            idle_polls = 0
-            readings, rejects, poison = _sort_batch(messages, config, stats)
-            inserted, rejected = store.write_batch(readings, rejects)
+            if stop:
+                log.info("shutdown requested")
+    finally:
+        undelivered = dlq.flush(10)
+        if undelivered:
+            log.warning("%d dead-letter replay copies unflushed", undelivered)
+        consumer.close()
+        store.close()
+        log.info(
+            "consumed=%d inserted=%d duplicates=%d rejected=%d",
+            stats.consumed,
+            stats.inserted,
+            stats.duplicates,
+            stats.rejected,
+        )
 
-            # offsets move only now. The rows are durable, so a crash before this
-            # point replays the batch rather than losing it.
-            consumer.commit(asynchronous=False)
-
-            stats.inserted += inserted
-            stats.duplicates += len(readings) - inserted
-            stats.rejected += rejected
-            _forward_to_dlq(dlq, config.dlq_topic.name, poison)
-
-            if max_messages is not None and stats.consumed >= max_messages:
-                break
-
-    if stop:
-        log.info("shutdown requested")
-    dlq.flush(10)
-    consumer.close()
-    store.close()
-    log.info(
-        "consumed=%d inserted=%d duplicates=%d rejected=%d",
-        stats.consumed,
-        stats.inserted,
-        stats.duplicates,
-        stats.rejected,
-    )
+    if stats.broker_errors:
+        log.error("%d broker error(s) during the run", stats.broker_errors)
+        return 1
     return 0
 
 
@@ -105,6 +116,7 @@ def _sort_batch(messages: list[Message], config: Config, stats: Stats):
     for message in messages:
         if message.error():
             log.error("broker error: %s", message.error())
+            stats.broker_errors += 1
             continue
         stats.consumed += 1
         try:
