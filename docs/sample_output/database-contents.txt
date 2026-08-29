@@ -20,41 +20,41 @@ Check constraints:
 
   hr_class   | count | min | max 
 -------------+-------+-----+-----
- normal      |  4747 |  60 |  95
- bradycardia |   989 |  20 |  59
- tachycardia |    96 | 102 | 180
- critical    |    58 | 186 | 248
+ normal      | 15580 |  60 |  97
+ bradycardia |  3502 |  20 |  59
+ tachycardia |   293 | 101 | 180
+ critical    |   248 | 181 | 250
 (4 rows)
 
- customer_id |          event_time           | heart_rate |  hr_class   | kafka_partition | kafka_offset 
--------------+-------------------------------+------------+-------------+-----------------+--------------
- cust-0042   | 2026-08-29 12:43:57.011448+00 |         62 | normal      |               2 |         2629
- cust-0033   | 2026-08-29 12:43:57.006433+00 |         71 | normal      |               2 |         2628
- cust-0024   | 2026-08-29 12:43:57.001419+00 |         81 | normal      |               2 |         2627
- cust-0045   | 2026-08-29 12:43:56.996424+00 |         73 | normal      |               0 |         1341
- cust-0015   | 2026-08-29 12:43:56.991459+00 |         53 | bradycardia |               2 |         2626
- cust-0016   | 2026-08-29 12:43:56.986466+00 |         75 | normal      |               2 |         2625
- cust-0021   | 2026-08-29 12:43:56.981423+00 |         67 | normal      |               1 |         2027
- cust-0043   | 2026-08-29 12:43:56.976433+00 |         83 | normal      |               1 |         2026
- cust-0034   | 2026-08-29 12:43:56.971429+00 |         80 | normal      |               2 |         2624
- cust-0047   | 2026-08-29 12:43:56.966424+00 |         58 | bradycardia |               2 |         2623
+ customer_id |          event_time           | heart_rate | hr_class | kafka_partition | kafka_offset 
+-------------+-------------------------------+------------+----------+-----------------+--------------
+ cust-0049   | 2026-08-29 14:48:10.950976+00 |         93 | normal   |               1 |         6864
+ cust-0030   | 2026-08-29 14:48:10.945967+00 |         76 | normal   |               2 |         8722
+ cust-0005   | 2026-08-29 14:48:10.940962+00 |         61 | normal   |               1 |         6863
+ cust-0017   | 2026-08-29 14:48:10.935972+00 |         67 | normal   |               1 |         6862
+ cust-0038   | 2026-08-29 14:48:10.930959+00 |         89 | normal   |               1 |         6861
+ cust-0045   | 2026-08-29 14:48:10.925941+00 |         67 | normal   |               0 |         4416
+ cust-0006   | 2026-08-29 14:48:10.921003+00 |         68 | normal   |               0 |         4415
+ cust-0043   | 2026-08-29 14:48:10.916311+00 |         79 | normal   |               1 |         6860
+ cust-0002   | 2026-08-29 14:48:10.910988+00 |        186 | critical |               1 |         6859
+ cust-0026   | 2026-08-29 14:48:10.906245+00 |         72 | normal   |               0 |         4414
 (10 rows)
 
                           reason                           | count 
 -----------------------------------------------------------+-------
- heart_rate 0 outside plausible range 20-250               |    28
- heart_rate -1 outside plausible range 20-250              |    24
- heart_rate 999 outside plausible range 20-250             |    23
- heart_rate 511 outside plausible range 20-250             |    21
- heart_rate 300 outside plausible range 20-250             |    14
+ heart_rate -1 outside plausible range 20-250              |    83
+ heart_rate 300 outside plausible range 20-250             |    77
+ heart_rate 511 outside plausible range 20-250             |    75
+ heart_rate 0 outside plausible range 20-250               |    74
+ heart_rate 999 outside plausible range 20-250             |    68
  not valid JSON: Expecting value: line 1 column 1 (char 0) |     2
- missing field(s): event_id, event_time, heart_rate        |     1
  heart_rate must be an integer, got 'seventy'              |     1
+ missing field(s): event_id, event_time, heart_rate        |     1
  event_id is not a UUID: 'not-a-uuid'                      |     1
 (9 rows)
 
  total_readings | distinct_event_ids 
 ----------------+--------------------
-           5890 |               5890
+          19623 |              19623
 (1 row)
 

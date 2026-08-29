@@ -1,0 +1,12 @@
+16:47:00 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+16:47:01 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+%6|1788014833.382|FAIL|rdkafka#producer-2| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 12220ms in state UP)
+%6|1788014833.385|FAIL|rdkafka#consumer-1| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 12276ms in state UP)
+16:47:33 INFO    heartbeat.consumer   shutdown requested
+16:47:33 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+16:47:33 INFO    heartbeat.consumer   consumed=12465 inserted=6338 duplicates=5890 rejected=122
+16:48:11 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+16:48:11 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+16:48:16 INFO    heartbeat.consumer   no messages left, stopping
+16:48:16 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+16:48:16 INFO    heartbeat.consumer   consumed=7540 inserted=7395 duplicates=0 rejected=145

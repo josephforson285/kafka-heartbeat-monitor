@@ -104,6 +104,18 @@ validation would still be stopped.
 | E14 | Consumer lag is observable | `kafka-consumer-groups.sh --describe` | Per-partition lag reported | Pass |
 | E15 | Grafana is provisioned | `docker compose up -d` on a clean volume | Datasource connects, dashboard and alert rule present | Pass |
 | E16 | Alert fires on a real condition | Ingest readings above the critical threshold | Rule goes `pending` then `firing` with value 1 | Pass |
+| E17 | Topics are replicated | `heartbeat topic-info` | Every partition `replicas [1,2,3] isr [1,2,3]` | Pass |
+| E18 | A topic that exists but does not match config | Recreate the DLQ at RF=1, run `create-topics` | Refused with the mismatch named, exit 1 | Pass |
+| E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Ingestion continues (7855 → 10313 rows) | Pass |
+| E20 | Leadership fails over | Compare `topic-info` before and during | Partition 2 leader moves from broker 2 to 3 | Pass |
+| E21 | In-sync replicas shrink | `topic-info` while one broker is down | All 4 partitions under-replicated, missing [2] | Pass |
+| E22 | The broker rejoins | `docker compose start kafka2` | ISR returns to [1,2,3] on every partition | Pass |
+| E23 | No duplicates across a failover | Count after the whole episode | 19,623 rows, 19,623 distinct `event_id` | Pass |
+
+E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
+could just mean nothing was actually broken.
+
+E18 exists because of a defect this caught — see below.
 
 E10 is the one that matters. It asserts two things separately — that
 `stored + rejected` equals what was produced (nothing lost) and that
@@ -125,6 +137,24 @@ empty polls as a drained topic, and by lowering `session.timeout.ms` from 45 s t
 The earlier version of this test could not have caught it: it killed the consumer
 after the backlog had already been drained, so the recovery pass had nothing to do
 and passed for the wrong reason.
+
+## A second defect, found by adding replication
+
+The first three-broker run reported
+`PASS ingestion continued through the broker failure (7846 -> 19623 rows)` — the
+important assertion, green — while `heartbeat.dlq` was quietly running at
+replication factor 1.
+
+Two causes. Kafka's `auto.create.topics.enable` defaults to on, so something touching
+the topic before `create-topics` ran had already created it at the broker defaults:
+one partition, no replication. And `create-topics` only checked whether a topic
+*existed*, not whether it matched the spec — so it reported "already exists" and moved
+on while config claimed RF=3.
+
+Fixed by disabling auto-creation, and by having `create-topics` compare partition
+count and replication factor against config and refuse to continue on a mismatch
+(E18). A green assertion on a system that is not doing what its configuration says is
+worse than a failing one.
 
 ## Not covered
 

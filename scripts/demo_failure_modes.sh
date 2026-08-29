@@ -5,6 +5,7 @@
 #   1. consumer killed mid-batch -> nothing lost, nothing duplicated
 #   2. a second consumer joins   -> partitions redistribute
 #   3. malformed messages arrive -> recorded and skipped, pipeline survives
+#   4. a broker dies             -> leadership moves, ingestion continues
 #
 # Destructive: tears the stack down with its volumes and starts clean.
 # Logs land in docs/sample_output/.
@@ -19,22 +20,29 @@ HB=.venv/bin/heartbeat
 OUT=docs/sample_output
 EVENTS=2000
 RATE=200
+raw_partitions=3
 
 mkdir -p "$OUT"
 psql_q() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d heartbeat -tAq -c "$1"; }
+# one place to name a broker container, so renaming a service cannot leave a
+# stale reference sitting in the middle of a pipeline
+kafka_cli() { local tool="$1"; shift; docker compose exec -T kafka1 "/opt/kafka/bin/$tool" "$@"; }
 banner() { printf '\n══ %s\n' "$*"; }
 check()  { if [ "$2" = "$3" ]; then printf 'PASS  %s (%s)\n' "$1" "$2"; else printf 'FAIL  %s: expected %s, got %s\n' "$1" "$3" "$2"; exit 1; fi; }
 
 
 banner "reset"
-docker compose down -v >/dev/null 2>&1 || true
+# --remove-orphans matters when upgrading from the single-broker layout: the old
+# `kafka` service is no longer in this file, so a plain `down` leaves it running
+# and holding port 9092
+docker compose down -v --remove-orphans >/dev/null 2>&1 || true
 docker compose up -d >/dev/null 2>&1
 # bounded, so an unhealthy container fails the run instead of hanging it
 for _ in $(seq 90); do
-  [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -eq 3 ] && break
+  [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -eq 5 ] && break
   sleep 2
 done
-if [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -ne 3 ]; then
+if [ "$(docker compose ps --format '{{.Health}}' | grep -c healthy)" -ne 5 ]; then
   printf 'stack did not become healthy:\n'
   docker compose ps
   exit 1
@@ -86,9 +94,8 @@ printf 'consumer B partition history:\n'
 grep -E 'partitions (assigned|revoked)' "$OUT/proof2-consumer-b.log" | sed 's/^/  /'
 
 printf '\nconsumer group lag while both are running:\n'
-docker compose exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 --describe --group proof2 \
-  | awk '{printf "  %s\n", $0}' | tee "$OUT/proof2-lag.txt"
+kafka_cli kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group proof2 | awk '{printf "  %s\n", $0}' | tee "$OUT/proof2-lag.txt"
 
 kill -TERM "$first" "$second" 2>/dev/null || true
 wait "$first" "$second" "$producer" 2>/dev/null || true
@@ -139,8 +146,64 @@ psql_q "SELECT '  ' || reason FROM heartbeat_rejects
         ORDER BY reject_id DESC LIMIT 5"
 
 printf '\nmessages forwarded to the dead-letter topic:\n'
-docker compose exec -T kafka /opt/kafka/bin/kafka-get-offsets.sh \
-  --bootstrap-server localhost:9092 --topic heartbeat.dlq | sed 's/^/  /'
+kafka_cli kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+  --topic heartbeat.dlq | sed 's/^/  /'
+
+banner "proof 4 — a broker fails"
+printf 'replication before:\n'
+$HB topic-info | sed 's/^/  /' | tee "$OUT/proof4-before.txt"
+
+# every partition is replicated on all three brokers, so losing one degrades all of them
+partitions=$(( raw_partitions + 1 ))
+
+$HB produce --duration 70 --rate "$RATE" >/dev/null 2>&1 &
+producer=$!
+$HB consume --group proof4 2>"$OUT/proof4-consumer.log" &
+consumer=$!
+sleep 10
+before_rows=$(psql_q "SELECT count(*) FROM heartbeat_readings")
+
+docker compose stop kafka2 >/dev/null 2>&1
+printf '\nstopped kafka2 while data was flowing\n'
+# poll rather than sleep: how fast the controller shrinks the ISR is not ours to assume
+for _ in $(seq 40); do
+  [ "$($HB topic-info 2>/dev/null | grep -c UNDER-REPLICATED || true)" -eq "$partitions" ] && break
+  sleep 2
+done
+printf 'replication while one broker is down:\n'
+$HB topic-info | sed 's/^/  /' | tee "$OUT/proof4-degraded.txt"
+sleep 8
+during_rows=$(psql_q "SELECT count(*) FROM heartbeat_readings")
+printf 'rows stored: %s before the failure, %s while degraded\n' "$before_rows" "$during_rows"
+
+docker compose start kafka2 >/dev/null 2>&1
+printf '\nrestarted kafka2, waiting for it to rejoin the in-sync replicas\n'
+for _ in $(seq 60); do
+  $HB topic-info 2>/dev/null | grep -q UNDER-REPLICATED || break
+  sleep 2
+done
+printf 'replication after recovery:\n'
+$HB topic-info | sed 's/^/  /' | tee "$OUT/proof4-recovered.txt"
+
+kill -TERM "$consumer" 2>/dev/null || true
+wait "$consumer" "$producer" 2>/dev/null || true
+$HB consume --drain --group proof4 2>>"$OUT/proof4-consumer.log"
+
+stored=$(psql_q "SELECT count(*) FROM heartbeat_readings")
+distinct=$(psql_q "SELECT count(DISTINCT event_id) FROM heartbeat_readings")
+
+if [ "$during_rows" -gt "$before_rows" ]; then
+  printf 'PASS  ingestion continued through the broker failure (%s -> %s rows)\n' \
+    "$before_rows" "$during_rows"
+else
+  printf 'FAIL  ingestion stalled during the broker failure\n'; exit 1
+fi
+check "in-sync replicas degraded while it was down" \
+  "$(grep -c UNDER-REPLICATED "$OUT/proof4-degraded.txt" || true)" "$partitions"
+check "in-sync replicas recovered" \
+  "$(grep -c UNDER-REPLICATED "$OUT/proof4-recovered.txt" || true)" "0"
+check "still no duplicates" "$distinct" "$stored"
+
 
 banner "database contents"
 docker compose exec -T postgres psql -U "$POSTGRES_USER" -d heartbeat \

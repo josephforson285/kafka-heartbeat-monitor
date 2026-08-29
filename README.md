@@ -111,6 +111,35 @@ Contract violations — malformed JSON, missing fields, a non-UUID `event_id`, a
 timestamp with no offset — take the same path as sensor faults. Nothing is silently
 discarded; every rejection is queryable with the partition and offset it came from.
 
+### Three brokers, so replication is real
+
+Replication factor is how many *different* brokers hold a copy of a partition, so
+RF=3 is impossible on one broker — Kafka refuses the topic outright. On a single
+broker `acks=all` is also nearly meaningless: "all in-sync replicas" is one machine,
+the same one `acks=1` would have used.
+
+With three brokers, `replication_factor: 3` and `min_insync_replicas: 2`, a write is
+only acknowledged once two brokers hold it, and one broker can die without stopping
+ingestion. Two brokers would not help: RF=2 with `min.insync.replicas=2` stops writes
+when either dies, and with 1 there is no guarantee left. Three is the smallest cluster
+where failure is survivable — the same reason KRaft's controller quorum needs three
+voters to tolerate losing one.
+
+The internal offsets and transaction-state topics are replicated too. Leaving those
+at 1 while the data topic is replicated survives a broker loss but forgets where the
+consumer had got to.
+
+### Topics are never created by accident
+
+`auto.create.topics.enable` is off. Left on — as it is by default — producing to a
+mistyped topic silently creates it at the broker defaults: one partition, no
+replication. Real data then lands in a topic nobody configured.
+
+`heartbeat create-topics` also compares topics that already exist against the config
+and refuses to continue on a mismatch, rather than reporting "already exists" and
+moving on. This was not hypothetical: an auto-created `heartbeat.dlq` sat at RF=1
+while the config claimed 3, and the old existence-only check said nothing.
+
 ### Offsets are committed after the write, never before
 
 Readings and rejects for one poll go into PostgreSQL in a single transaction. Only
@@ -172,6 +201,25 @@ missing field(s): event_id, event_time, heart_rate
 not valid JSON  (invalid UTF-8)
 ```
 
+**A broker can die mid-stream without stopping ingestion.** `kafka2` is stopped while
+the producer and consumer are running:
+
+```
+before      partition 2   leader 2   replicas [1,2,3]   isr [1,2,3]
+one down    partition 2   leader 3   replicas [1,2,3]   isr [1,3]   UNDER-REPLICATED, missing [2]
+recovered   partition 2   leader 3   replicas [1,2,3]   isr [1,2,3]
+
+PASS  ingestion continued through the broker failure (7855 -> 10313 rows)
+PASS  in-sync replicas degraded while it was down (4)
+PASS  in-sync replicas recovered (0)
+PASS  still no duplicates (19623)
+```
+
+Leadership moved off the dead broker on its own and the pipeline kept writing —
+`min.insync.replicas: 2` was still satisfied by the two survivors. Note that
+leadership stays on broker 3 after recovery; Kafka does not move it back
+automatically.
+
 Logs from these runs are in [docs/sample_output/](docs/sample_output/), alongside
 [database-contents.txt](docs/sample_output/database-contents.txt) — the table
 definition, the classification breakdown, recent rows with the partition and offset
@@ -186,7 +234,7 @@ they came from, and the count that matters:
 Consumer lag, at any time:
 
 ```bash
-docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+docker compose exec kafka1 /opt/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 --describe --group heartbeat-writer
 ```
 
@@ -250,11 +298,16 @@ tests/                        unit tests
 
 ## What would change in production
 
-Replication factor is 1 because there is one broker, which means losing it loses
-data. Production would run at least three brokers with `replication.factor=3` and
-`min.insync.replicas=2`, keeping `acks=all` so a write is only acknowledged once a
-majority holds it.
+Replication is already what production would run — three brokers, `replication.factor=3`,
+`min.insync.replicas=2`, `acks=all`. What is still missing is everything around it:
 
-Beyond that: TLS and SASL on the broker, a Schema Registry once more than one team
-produces to the topic, time-based partitioning on `heartbeat_readings` as it grows,
-and broker metrics exported to Prometheus rather than read off the CLI.
+- **The brokers share a machine.** Three containers on one host survive a broker
+  process dying, which is what proof 4 shows, but not the host dying. Real clusters
+  spread brokers across failure domains.
+- **No TLS or SASL.** Every listener is plaintext and unauthenticated.
+- **No Schema Registry.** A shared Python module is enough while one team owns both
+  ends of the topic. It stops being enough the moment someone else produces.
+- **`heartbeat_readings` is a single table.** At sustained volume it wants
+  time-based partitioning and a retention policy.
+- **Broker metrics are read off the CLI.** Production exports JMX to Prometheus and
+  alerts on under-replicated partitions rather than looking at `topic-info` by hand.

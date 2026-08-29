@@ -1,0 +1,9 @@
+  brokers: [1, 2, 3]
+  
+  heartbeat.raw
+    partition 0   leader 3   replicas [1, 2, 3]   isr [1, 2, 3]
+    partition 1   leader 1   replicas [1, 2, 3]   isr [1, 2, 3]
+    partition 2   leader 2   replicas [1, 2, 3]   isr [1, 2, 3]
+  
+  heartbeat.dlq
+    partition 0   leader 2   replicas [1, 2, 3]   isr [1, 2, 3]

@@ -12,12 +12,17 @@ a consumer was actually running, so the measurement window is bounded to that.
 
 Producer and consumer live together at 200 readings/second:
 
-| Metric | Value |
-|---|---|
-| Rows measured | 3925 |
-| p50 | 128 ms |
-| p95 | 230 ms |
-| max | 696 ms |
+| Metric | RF=1, single broker | RF=3, `min.insync.replicas=2` |
+|---|---|---|
+| Rows measured | 3925 | 3925 |
+| p50 | 128 ms | **134 ms** |
+| p95 | 230 ms | **237 ms** |
+| max | 696 ms | 657 ms |
+
+The right-hand column is what the pipeline runs today. Replication costs about 6 ms
+at p50 — the producer now waits for a second broker to hold the write before it is
+acknowledged, rather than only the leader. That is the price of `acks=all` meaning
+something, and at this scale it is not worth optimising away.
 
 Most of the p50 is the consumer's own batching: it waits up to
 `batch_timeout_seconds: 2.0` to fill a batch of 500, so a reading arriving early in

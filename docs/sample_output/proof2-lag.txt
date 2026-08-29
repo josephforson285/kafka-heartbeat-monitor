@@ -1,5 +1,2 @@
   
-  GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                  HOST            CLIENT-ID
-  proof2          heartbeat.raw   0          1342            1342            0               rdkafka-5dda66e1-7797-45a6-b8e9-9d0ac34ee1ea /172.18.0.1     rdkafka
-  proof2          heartbeat.raw   1          2028            2028            0               rdkafka-5dda66e1-7797-45a6-b8e9-9d0ac34ee1ea /172.18.0.1     rdkafka
-  proof2          heartbeat.raw   2          2630            2630            0               rdkafka-a238a30d-9363-4900-98bd-8256caee9d21 /172.18.0.1     rdkafka
+  Error: Executing consumer group command failed due to org.apache.kafka.common.errors.TimeoutException: Timed out waiting for a node assignment. Call: describeConsumerGroups(api=CONSUMER_GROUP_DESCRIBE)
