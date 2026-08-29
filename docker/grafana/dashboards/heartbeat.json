@@ -1,23 +1,35 @@
 {
   "uid": "heartbeat-overview",
   "title": "Heart Beat Monitoring",
-  "tags": ["heartbeat", "kafka"],
+  "tags": [
+    "heartbeat",
+    "kafka"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "customer",
         "label": "Customer",
         "type": "query",
-        "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "heartbeat-pg"
+        },
         "query": "SELECT DISTINCT customer_id FROM heartbeat_readings ORDER BY 1",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -26,13 +38,35 @@
       "id": 1,
       "type": "stat",
       "title": "Readings stored",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "fixed", "fixedColor": "text" }, "unit": "short" },
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "unit": "short"
+        },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
       "targets": [
         {
           "refId": "A",
@@ -48,23 +82,47 @@
       "type": "stat",
       "title": "Alerting readings",
       "description": "Readings outside the normal band. Real data, not sensor faults.",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
       "targets": [
         {
           "refId": "A",
@@ -80,23 +138,47 @@
       "type": "stat",
       "title": "Rejected messages",
       "description": "Failed the contract or were physically impossible. Kept, not discarded.",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
       "targets": [
         {
           "refId": "A",
@@ -112,13 +194,36 @@
       "type": "stat",
       "title": "Ingest latency (p95)",
       "description": "ingested_at - event_time: producer clock to durable row.",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" }, "unit": "ms", "decimals": 0 },
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "ms",
+          "decimals": 0
+        },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
       "targets": [
         {
           "refId": "A",
@@ -133,8 +238,16 @@
       "id": 5,
       "type": "timeseries",
       "title": "Heart rate by customer",
-      "gridPos": { "h": 10, "w": 16, "x": 0, "y": 4 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "bpm",
@@ -146,23 +259,44 @@
             "fillOpacity": 5,
             "showPoints": "never",
             "spanNulls": true,
-            "thresholdsStyle": { "mode": "dashed" }
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "blue", "value": null },
-              { "color": "green", "value": 60 },
-              { "color": "orange", "value": 100 },
-              { "color": "red", "value": 180 }
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 60
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -179,26 +313,70 @@
       "type": "table",
       "title": "Patients currently outside the normal band",
       "description": "Latest reading per customer, abnormal ones only.",
-      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 4 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto" } },
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "hr_class" },
+            "matcher": {
+              "id": "byName",
+              "options": "hr_class"
+            },
             "properties": [
               {
                 "id": "mappings",
                 "value": [
-                  { "type": "value", "options": { "critical": { "color": "red", "index": 0 }, "tachycardia": { "color": "orange", "index": 1 }, "bradycardia": { "color": "blue", "index": 2 } } }
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "tachycardia": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "bradycardia": {
+                        "color": "blue",
+                        "index": 2
+                      }
+                    }
+                  }
                 ]
               },
-              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
             ]
           }
         ]
       },
-      "options": { "showHeader": true, "sortBy": [{ "displayName": "event_time", "desc": true }] },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "event_time",
+            "desc": true
+          }
+        ]
+      },
       "targets": [
         {
           "refId": "A",
@@ -213,23 +391,102 @@
       "id": 7,
       "type": "timeseries",
       "title": "Readings by classification",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 70, "stacking": { "mode": "normal" }, "showPoints": "never" }
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "normal" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
-          { "matcher": { "id": "byName", "options": "bradycardia" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
-          { "matcher": { "id": "byName", "options": "tachycardia" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
-          { "matcher": { "id": "byName", "options": "critical" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "normal"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bradycardia"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tachycardia"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
         ]
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -244,12 +501,29 @@
     {
       "id": 8,
       "type": "table",
-      "title": "Rejected messages",
+      "title": "Why messages were rejected",
       "description": "Why each message failed, and where in the log it came from.",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "heartbeat-pg" },
-      "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
-      "options": { "showHeader": true },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
       "targets": [
         {
           "refId": "A",

@@ -54,7 +54,9 @@ Open Grafana at <http://localhost:3000> and the dashboard is already there.
 
 Upgrading an existing stack: the broker service was renamed `kafka` → `kafka1`, so
 `docker compose down -v` leaves the old container behind holding port 9092. Use
-`docker compose down -v --remove-orphans`.
+`docker compose down -v --remove-orphans`. The old `heartbeat_kafka_data` volume is
+left behind for the same reason — it is unused, and
+`docker volume rm heartbeat_kafka_data` reclaims the space.
 
 ## Commands
 
