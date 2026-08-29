@@ -118,9 +118,18 @@ validation would still be stopped.
 | E21 | In-sync replicas shrink | `topic-info` while one broker is down | All 4 partitions under-replicated, missing [2] | Pass |
 | E22 | The broker rejoins | `docker compose start kafka2` | ISR returns to [1,2,3] on every partition | Pass |
 | E23 | No duplicates across a failover | Count after the whole episode | 19,623 rows, 19,623 distinct `event_id` | Pass |
+| E24 | PostgreSQL dies mid-consume | `docker compose stop postgres` with the consumer running | Partitions revoked, stats logged, clean message, exit 3 — no traceback, no hang | Pass |
+| E25 | Recovery after the database returns | Restart it, re-run `consume --drain` | Remaining 3,318 consumed, `duplicates=0`, lag 0, rows = distinct | Pass |
 
 E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
 could just mean nothing was actually broken.
+
+E24 is worth its own note. The consumer leaves the group cleanly on the way out —
+partitions revoked, counts reported, one line saying what is unreachable — because
+the close happens in a `finally`. Before that guard it would have died holding its
+partitions, and the next consumer would have waited out `session.timeout.ms` for
+nothing. The batch in flight was never committed, so E25 replays it and the primary
+key absorbs it.
 
 E18 exists because of a defect this caught — see below.
 
@@ -172,6 +181,9 @@ clusters spread brokers across failure domains; nothing here tests that.
 **Losing two brokers at once.** With `min.insync.replicas: 2`, writes stop — by
 design, since one surviving copy is not the guarantee the config promises. That is
 correct behaviour rather than a failure, but it is asserted nowhere.
+
+**Losing PostgreSQL and Kafka at once.** E24 covers the database going away on its
+own. Both failing together is untested.
 
 **TLS and authentication.** Every listener is plaintext. Out of scope for this lab.
 

@@ -240,6 +240,10 @@ they came from, and the count that matters:
            5890 |               5890
 ```
 
+**The database going away is survivable too.** Stopping PostgreSQL mid-consume leaves
+the group cleanly and exits 3 with one readable line; restarting it and re-running
+`consume --drain` picks up the uncommitted batch with `duplicates=0`.
+
 Consumer lag, at any time. Note the internal listener: run inside a broker container,
 the external addresses advertise `localhost:909x`, which from in there resolves only
 to that same container, so any call needing a second broker times out.

@@ -1,6 +1,5 @@
-17:36:10 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof2
-17:36:10 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-%4|1788017770.656|GETPID|rdkafka#producer-2| [thrd:main]: Failed to acquire idempotence PID from broker localhost:9096/3: Broker: Coordinator load in progress: retrying
-17:36:14 INFO    heartbeat.consumer   no messages left, stopping
-17:36:14 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:36:14 INFO    heartbeat.consumer   consumed=5 inserted=0 duplicates=0 rejected=5
+17:47:55 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof2
+17:47:55 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+17:47:59 INFO    heartbeat.consumer   no messages left, stopping
+17:47:59 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+17:47:59 INFO    heartbeat.consumer   consumed=5 inserted=0 duplicates=0 rejected=5

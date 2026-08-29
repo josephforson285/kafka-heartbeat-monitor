@@ -83,6 +83,35 @@ by proof 3):
 that is about 4.6 GB per year of raw growth before any partitioning or retention
 policy.
 
+## Indexes
+
+Checked with `EXPLAIN` against 19,623 rows rather than assumed.
+
+| Index | Size | Serves |
+|---|---|---|
+| `heartbeat_readings_pkey` | 792 kB | the `ON CONFLICT` dedup lookup |
+| `idx_readings_customer_time` | 1240 kB | one patient over a window |
+| `idx_readings_time` | 672 kB | fleet-wide time range |
+| `idx_readings_alerting` | 168 kB | the abnormal rows only |
+
+The primary key had **27,480 scans** — one per insert attempt. That is the dedup
+mechanism working: every row inserted asks whether its `event_id` is already there.
+It is the busiest index in the schema and the reason the guarantee costs so little.
+
+`idx_readings_customer_time` is confirmed used — the customer-and-window query plans
+as a bitmap index scan on it. Note it only comes into play when the dashboard's
+customer variable is narrowed; the default "All" view does not filter by customer.
+
+`idx_readings_time` looks unused at first glance, because a 15-minute window covers
+most of a table holding only a few hours of data, and a sequential scan is genuinely
+cheaper there. That is the planner being right, not the index being wrong: over a
+5-second window it plans an index-only scan, which is what every window looks like
+once the table holds more than a few hours.
+
+`idx_readings_alerting` is partial — it indexes only `hr_class <> 'normal'`, which is
+why it is 168 kB against the 672 kB of the full time index while serving the alert
+panels just as well.
+
 ## Configuration that drives these numbers
 
 | Setting | Value | Effect |

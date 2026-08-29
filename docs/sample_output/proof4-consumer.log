@@ -1,12 +1,11 @@
-17:36:17 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:36:17 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-%6|1788017791.585|FAIL|rdkafka#producer-2| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14161ms in state UP)
-%6|1788017791.586|FAIL|rdkafka#consumer-1| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14198ms in state UP)
-17:36:47 INFO    heartbeat.consumer   shutdown requested
-17:36:47 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:36:47 INFO    heartbeat.consumer   consumed=11940 inserted=5826 duplicates=5890 rejected=109
-17:37:27 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:37:27 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-17:37:32 INFO    heartbeat.consumer   no messages left, stopping
-17:37:32 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:37:32 INFO    heartbeat.consumer   consumed=8065 inserted=7907 duplicates=0 rejected=158
+17:48:02 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+17:48:02 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+%6|1788018494.342|FAIL|rdkafka#consumer-1| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 12087ms in state UP)
+17:48:29 INFO    heartbeat.consumer   shutdown requested
+17:48:29 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+17:48:29 INFO    heartbeat.consumer   consumed=11389 inserted=5287 duplicates=5890 rejected=97
+17:49:12 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+17:49:12 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+17:49:17 INFO    heartbeat.consumer   no messages left, stopping
+17:49:17 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+17:49:17 INFO    heartbeat.consumer   consumed=8616 inserted=8446 duplicates=0 rejected=170
