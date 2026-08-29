@@ -76,6 +76,11 @@ class HeartbeatEvent:
             if not isinstance(payload[field], str) or not payload[field]:
                 raise SchemaError(f"{field} must be a non-empty string")
 
+        try:
+            uuid.UUID(payload["event_id"])
+        except ValueError as exc:
+            raise SchemaError(f"event_id is not a UUID: {payload['event_id']!r}") from exc
+
         heart_rate = payload["heart_rate"]
         # bool subclasses int, so True would otherwise sail through as a heart rate
         if isinstance(heart_rate, bool) or not isinstance(heart_rate, int):
