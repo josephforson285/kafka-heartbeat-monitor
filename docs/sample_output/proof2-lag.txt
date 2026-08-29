@@ -1,0 +1,5 @@
+  
+  GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                  HOST            CLIENT-ID
+  proof2          heartbeat.raw   0          1342            1342            0               rdkafka-8fe14005-ffee-4d45-9ea3-566c60c67214 /172.18.0.1     rdkafka
+  proof2          heartbeat.raw   1          2028            2028            0               rdkafka-8fe14005-ffee-4d45-9ea3-566c60c67214 /172.18.0.1     rdkafka
+  proof2          heartbeat.raw   2          2630            2630            0               rdkafka-df27afc3-f814-4c82-aabd-b34868ea4d91 /172.18.0.1     rdkafka
