@@ -227,6 +227,37 @@ Leadership moved off the dead broker on its own and the pipeline kept writing �
 leadership stays on broker 3 after recovery; Kafka does not move it back
 automatically.
 
+### What survives a sudden shutdown
+
+The committed offset is the boundary. Everything up to it is durable in PostgreSQL;
+everything after it is replayed and absorbed by the primary key. Each component was
+killed on purpose to check:
+
+| What dies | What is lost | What happens on resume |
+|---|---|---|
+| Consumer, `SIGTERM` | nothing — the batch in hand finishes and commits | resumes at the committed offset, replays nothing |
+| Consumer, `SIGKILL` | nothing durable — the uncommitted batch is still on the topic | replays that batch, `ON CONFLICT` absorbs it |
+| PostgreSQL | nothing durable — same uncommitted batch | leaves the group cleanly, exits 3; replays on restart |
+| Every broker, consumer running | nothing — with no messages there is nothing to commit | self-heals: session times out, rejoins, carries on |
+| Every broker, producer running | every buffered reading | reported as `unflushed`, exit 1. Those readings are gone |
+| Producer, `SIGTERM` | nothing — `close()` flushes what is buffered | starts fresh; there is nothing to replay |
+| Producer, `SIGKILL` | whatever sat in the local buffer, **with no record of it** | starts fresh; the gap is permanent |
+
+The consumer side is safe because the order is fixed: write the rows, commit the
+offsets. Interrupt it anywhere and the worst case is that a batch is processed twice,
+which the primary key makes free.
+
+**The producer is the exception, and it is worth being straight about.** `produce()`
+buffers locally and delivery is confirmed later on a callback, so a `SIGKILL` takes
+the buffer with it — measured at roughly 51 readings out of 1,200 at 300/s, and the
+process dies before it can report a single one. There is no replay, because a heart
+rate sensor has no log to replay from. `acks=all` and `enable.idempotence` protect a
+message once Kafka has been asked to store it; they cannot protect one that never
+left the producer.
+
+A real deployment closes that gap on the device: the sensor buffers to its own
+storage and retries. Nothing on the Kafka side can do it for you.
+
 The figures above are from the run whose logs are committed in
 [docs/sample_output/](docs/sample_output/); re-running the script regenerates both
 together. Alongside them is

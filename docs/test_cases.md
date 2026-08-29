@@ -120,9 +120,23 @@ validation would still be stopped.
 | E23 | No duplicates across a failover | Count after the whole episode | 19,623 rows, 19,623 distinct `event_id` | Pass |
 | E24 | PostgreSQL dies mid-consume | `docker compose stop postgres` with the consumer running | Partitions revoked, stats logged, clean message, exit 3 — no traceback, no hang | Pass |
 | E25 | Recovery after the database returns | Restart it, re-run `consume --drain` | Remaining 3,318 consumed, `duplicates=0`, lag 0, rows = distinct | Pass |
+| E26 | Producer `SIGTERM` | Kill gracefully mid-run | `sent=1167 delivered=1167 failed=0 unflushed=0`, exit 0 | Pass |
+| E27 | Producer `SIGKILL` | Kill outright mid-run | ~1,149 of ~1,200 reached the topic; the buffered remainder lost with no report | Pass |
+| E28 | Every broker down, producer running | Stop all three, then produce | `delivered=0 unflushed=200`, logged as an error, exit 1 — never silently dropped | Pass |
+| E29 | Every broker down, consumer running | Stop all three for 20s, restart | Consumer survives, session times out, partitions reassigned, catches up 7,247 rows | Pass |
+| E30 | Consumer `SIGTERM` | Kill gracefully | Exit 0; restarting the same group consumes 0 — every batch was committed | Pass |
 
 E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
 could just mean nothing was actually broken.
+
+E26 to E30 map the shutdown boundary from both ends. E30 is the contrast that makes
+E10 meaningful: killed gracefully the consumer replays nothing, killed outright it
+replays exactly the uncommitted batch. Same code, and the difference is only whether
+the commit had happened.
+
+E27 is the one honest gap. The producer buffers locally and the process dies before
+the delivery callbacks arrive, so those readings are lost and unrecorded. No Kafka
+setting fixes that; only the device buffering its own data would.
 
 E24 is worth its own note. The consumer leaves the group cleanly on the way out —
 partitions revoked, counts reported, one line saying what is unreachable — because
