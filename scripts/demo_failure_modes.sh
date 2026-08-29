@@ -76,10 +76,18 @@ producer=$!
 $HB consume --group proof1 2>"$OUT/proof1-crash.log" &
 victim=$!
 
-sleep 4
+# Wait for the consumer to be genuinely mid-stream — some rows written, but not all.
+# A fixed sleep made the evidence luck: too early and it has written nothing, too
+# late and there is nothing left to recover. The assertions hold either way, but
+# only a kill inside that band demonstrates anything.
+partial=0
+for _ in $(seq 60); do
+  partial=$(psql_q "SELECT count(*) FROM heartbeat_readings")
+  [ "$partial" -gt 0 ] && [ "$partial" -lt "$EVENTS" ] && break
+  sleep 0.3
+done
 kill -9 "$victim"
 wait "$victim" 2>/dev/null || true
-partial=$(psql_q "SELECT count(*) FROM heartbeat_readings")
 printf 'killed with SIGKILL after %s of %s rows were written\n' "$partial" "$EVENTS"
 
 wait "$producer" 2>/dev/null || true

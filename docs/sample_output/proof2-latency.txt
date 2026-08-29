@@ -1,1 +1,1 @@
-  rows=3925  p50=133ms  p95=244ms  max=1188ms
+  rows=3925  p50=134ms  p95=248ms  max=1206ms

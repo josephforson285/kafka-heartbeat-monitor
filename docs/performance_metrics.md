@@ -15,9 +15,9 @@ Producer and consumer live together at 200 readings/second:
 | Metric | RF=1, single broker | RF=3, `min.insync.replicas=2` |
 |---|---|---|
 | Rows measured | 3925 | 3925 |
-| p50 | 128 ms | **133 ms** |
-| p95 | 230 ms | **244 ms** |
-| max | 696 ms | 1188 ms |
+| p50 | 128 ms | **134 ms** |
+| p95 | 230 ms | **248 ms** |
+| max | 696 ms | 1206 ms |
 
 The right-hand column is what the pipeline runs today. The producer now waits for a
 second broker to hold the write before it is acknowledged, rather than only the

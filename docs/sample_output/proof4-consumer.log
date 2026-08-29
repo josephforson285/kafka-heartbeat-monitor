@@ -1,12 +1,11 @@
-17:54:32 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:54:32 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-17:54:46 INFO    heartbeat.consumer   FAIL [rdkafka#consumer-1] [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14298ms in state UP)
-17:54:46 INFO    heartbeat.consumer   FAIL [rdkafka#producer-2] [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14124ms in state UP)
-17:55:01 INFO    heartbeat.consumer   shutdown requested
-17:55:01 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:55:01 INFO    heartbeat.consumer   consumed=11857 inserted=5745 duplicates=5890 rejected=107
-17:55:42 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:55:42 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-17:55:47 INFO    heartbeat.consumer   no messages left, stopping
-17:55:47 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:55:47 INFO    heartbeat.consumer   consumed=8148 inserted=7988 duplicates=0 rejected=160
+22:18:56 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+22:18:56 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+22:19:09 INFO    heartbeat.consumer   FAIL [rdkafka#consumer-1] [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 12374ms in state UP)
+22:19:25 INFO    heartbeat.consumer   shutdown requested
+22:19:25 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+22:19:25 INFO    heartbeat.consumer   consumed=11779 inserted=5668 duplicates=5890 rejected=106
+22:20:07 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+22:20:07 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+22:20:12 INFO    heartbeat.consumer   no messages left, stopping
+22:20:12 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+22:20:12 INFO    heartbeat.consumer   consumed=8226 inserted=8065 duplicates=0 rejected=161

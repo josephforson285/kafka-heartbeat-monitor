@@ -262,7 +262,7 @@ before      partition 2   leader 2   replicas [1,2,3]   isr [1,2,3]
 one down    partition 2   leader 3   replicas [1,2,3]   isr [1,3]   UNDER-REPLICATED, missing [2]
 recovered   partition 2   leader 3   replicas [1,2,3]   isr [1,2,3]
 
-PASS  ingestion continued through the broker failure (7832 -> 10533 rows)
+PASS  ingestion continued through the broker failure (7822 -> 10254 rows)
 PASS  in-sync replicas degraded while it was down (4)
 PASS  in-sync replicas recovered (0)
 PASS  still no duplicates (19623)
@@ -337,7 +337,7 @@ At 200 readings/second with producer and consumer running together, measured as
 
 | p50 | p95 | max | rows |
 |---|---|---|---|
-| 133 ms | 244 ms | 1188 ms | 3925 |
+| 134 ms | 248 ms | 1206 ms | 3925 |
 
 The consumer sustains 9,753 messages/second — about 50× this workload. The limit is
 the synchronous offset commit, one round trip per batch, which is also the thing that
