@@ -143,26 +143,51 @@ class Config:
         database = _section(raw, "database", path)
 
         return cls(
-            bootstrap_servers=kafka["bootstrap_servers"],
-            raw_topic=TopicSpec(**topics["raw"]),
-            dlq_topic=TopicSpec(**topics["dlq"]),
-            generator=GeneratorSettings(**_section(raw, "generator", path)),
-            bands=HeartRateBands(**_section(raw, "heart_rate", path)),
-            consumer=ConsumerSettings(**_section(raw, "consumer", path)),
+            bootstrap_servers=_require(kafka, "bootstrap_servers", path, "kafka"),
+            raw_topic=_build(TopicSpec, topics, "raw", path, "kafka.topics"),
+            dlq_topic=_build(TopicSpec, topics, "dlq", path, "kafka.topics"),
+            generator=_build(GeneratorSettings, raw, "generator", path),
+            bands=_build(HeartRateBands, raw, "heart_rate", path),
+            consumer=_build(ConsumerSettings, raw, "consumer", path),
             dsn=(
-                f"host={database['host']} port={database['port']} "
-                f"dbname={database['name']} user={user} password={password}"
+                f"host={_require(database, 'host', path, 'database')} "
+                f"port={_require(database, 'port', path, 'database')} "
+                f"dbname={_require(database, 'name', path, 'database')} "
+                f"user={user} password={password}"
             ),
             _producer_options=dict(kafka.get("producer", {})),
             _consumer_options=dict(kafka.get("consumer", {})),
         )
 
 
-def _section(source: dict, key: str, path: Path, parent: str = "") -> dict:
+def _label(key: str, parent: str) -> str:
+    return f"{parent}.{key}" if parent else key
+
+
+def _require(source: dict, key: str, path: Path, parent: str = "") -> Any:
     if key not in source:
-        location = f"{parent}.{key}" if parent else key
-        raise ConfigError(f"missing '{location}' section in {path}")
+        raise ConfigError(f"missing '{_label(key, parent)}' in {path}")
     return source[key]
+
+
+def _section(source: dict, key: str, path: Path, parent: str = "") -> dict:
+    value = _require(source, key, path, parent)
+    if not isinstance(value, dict):
+        raise ConfigError(f"'{_label(key, parent)}' in {path} must be a mapping")
+    return value
+
+
+def _build(factory, source: dict, key: str, path: Path, parent: str = ""):
+    """Construct a settings dataclass, reporting a bad key as a config error.
+
+    Without this a typo in config.yaml surfaces as a TypeError traceback from the
+    dataclass, which tells the reader nothing about which file is wrong.
+    """
+    values = _section(source, key, path, parent)
+    try:
+        return factory(**values)
+    except TypeError as exc:
+        raise ConfigError(f"'{_label(key, parent)}' in {path}: {exc}") from exc
 
 
 def _require_env(name: str) -> str:
