@@ -23,10 +23,29 @@ RATE=200
 raw_partitions=3
 
 mkdir -p "$OUT"
+
+# a failed assertion exits mid-proof; without this the background producer and
+# consumer outlive the script and interfere with the next run
+# Kills by recorded pid, not `jobs -p`: piping jobs into xargs runs it in a subshell
+# whose job table is empty, so it silently kills nothing. No `wait` either — a
+# cleanup that blocks is worse than a child reaped late.
+cleanup() {
+  local code=$? pid
+  for pid in "${producer:-}" "${victim:-}" "${first:-}" "${second:-}" "${consumer:-}"; do
+    if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi
+  done
+  exit "$code"
+}
+trap cleanup EXIT INT TERM
 psql_q() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d heartbeat -tAq -c "$1"; }
-# one place to name a broker container, so renaming a service cannot leave a
-# stale reference sitting in the middle of a pipeline
-kafka_cli() { local tool="$1"; shift; docker compose exec -T kafka1 "/opt/kafka/bin/$tool" "$@"; }
+# one place to name a broker container, so renaming a service cannot leave a stale
+# reference in the middle of a pipeline. Bootstraps on the internal listener: the
+# external one advertises localhost:909x, which from inside a container is only ever
+# that container, so anything needing a second broker times out.
+kafka_cli() {
+  local tool="$1"; shift
+  docker compose exec -T kafka1 "/opt/kafka/bin/$tool" --bootstrap-server kafka1:19092 "$@"
+}
 banner() { printf '\n══ %s\n' "$*"; }
 check()  { if [ "$2" = "$3" ]; then printf 'PASS  %s (%s)\n' "$1" "$2"; else printf 'FAIL  %s: expected %s, got %s\n' "$1" "$3" "$2"; exit 1; fi; }
 
@@ -94,8 +113,8 @@ printf 'consumer B partition history:\n'
 grep -E 'partitions (assigned|revoked)' "$OUT/proof2-consumer-b.log" | sed 's/^/  /'
 
 printf '\nconsumer group lag while both are running:\n'
-kafka_cli kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
-  --describe --group proof2 | awk '{printf "  %s\n", $0}' | tee "$OUT/proof2-lag.txt"
+kafka_cli kafka-consumer-groups.sh --describe --group proof2 \
+  | awk '{printf "  %s\n", $0}' | tee "$OUT/proof2-lag.txt"
 
 kill -TERM "$first" "$second" 2>/dev/null || true
 wait "$first" "$second" "$producer" 2>/dev/null || true
@@ -120,6 +139,8 @@ before=$(psql_q "$schema_rejects")
 .venv/bin/python - <<'PY'
 from confluent_kafka import Producer
 
+BOOTSTRAP = "localhost:9092,localhost:9094,localhost:9096"
+
 poison = [
     b"not json at all",
     b'{"customer_id": "cust-0001"}',
@@ -127,7 +148,7 @@ poison = [
     b'{"event_id":"3f1b6d84-0f1a-4a1e-9a5e-1c2d3e4f5a6b","customer_id":"c","event_time":"2026-01-01T00:00:00+00:00","heart_rate":"seventy"}',
     b"\xff\xfe not valid utf-8",
 ]
-producer = Producer({"bootstrap.servers": "localhost:9092"})
+producer = Producer({"bootstrap.servers": BOOTSTRAP})
 for payload in poison:
     producer.produce("heartbeat.raw", key=b"cust-0001", value=payload)
 producer.flush(10)
@@ -146,8 +167,7 @@ psql_q "SELECT '  ' || reason FROM heartbeat_rejects
         ORDER BY reject_id DESC LIMIT 5"
 
 printf '\nmessages forwarded to the dead-letter topic:\n'
-kafka_cli kafka-get-offsets.sh --bootstrap-server localhost:9092 \
-  --topic heartbeat.dlq | sed 's/^/  /'
+kafka_cli kafka-get-offsets.sh --topic heartbeat.dlq | sed 's/^/  /'
 
 banner "proof 4 — a broker fails"
 printf 'replication before:\n'
