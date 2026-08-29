@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import logging
+from datetime import datetime
 from typing import Sequence
 
 import psycopg
-
-log = logging.getLogger(__name__)
 
 _INSERT_READING = """
     INSERT INTO heartbeat_readings
@@ -21,7 +19,7 @@ _INSERT_REJECT = """
     ON CONFLICT (kafka_partition, kafka_offset) DO NOTHING
 """
 
-Reading = tuple[str, str, object, int, str, int, int]
+Reading = tuple[str, str, datetime, int, str, int, int]
 Reject = tuple[bytes | None, str, int, int]
 
 

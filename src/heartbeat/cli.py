@@ -35,7 +35,7 @@ def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
         if topic is None:
             missing.append(spec)
             continue
-        replication = max(len(p.replicas) for p in topic.partitions.values())
+        replication = max((len(p.replicas) for p in topic.partitions.values()), default=0)
         problem = spec.mismatch(len(topic.partitions), replication)
         if problem:
             log.error("topic %s %s", spec.name, problem)
@@ -124,7 +124,9 @@ def build_parser() -> argparse.ArgumentParser:
     init_db = sub.add_parser("init-db", help="apply the database schema")
     init_db.set_defaults(handler=cmd_init_db)
 
-    create_topics = sub.add_parser("create-topics", help="create the Kafka topics")
+    create_topics = sub.add_parser(
+        "create-topics", help="create the topics, or verify they match config"
+    )
     create_topics.set_defaults(handler=cmd_create_topics)
 
     topic_info = sub.add_parser(
@@ -166,8 +168,13 @@ def main(argv: list[str] | None = None) -> int:
         _unreachable("PostgreSQL", str(exc).strip().splitlines()[0])
         return 3
     except KafkaException as exc:
-        _unreachable("Kafka", exc.args[0].str() if exc.args else str(exc))
+        _unreachable("Kafka", _kafka_detail(exc))
         return 3
+
+
+def _kafka_detail(exc: KafkaException) -> str:
+    error = exc.args[0] if exc.args else None
+    return error.str() if hasattr(error, "str") else str(exc)
 
 
 def _unreachable(service: str, detail: str) -> None:
