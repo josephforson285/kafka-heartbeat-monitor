@@ -31,7 +31,7 @@ def run_consumer(
     drain: bool = False,
 ) -> int:
     options = config.consumer_config(group_id)
-    consumer = Consumer(options)
+    consumer = Consumer({**options, "logger": log})
     assignment: set[int] = set()
 
     def on_assign(_consumer: Consumer, partitions) -> None:
@@ -44,7 +44,7 @@ def run_consumer(
 
     consumer.subscribe([config.raw_topic.name], on_assign=on_assign, on_revoke=on_revoke)
     store = HeartbeatStore(config.dsn)
-    dlq = Producer(config.producer_config())
+    dlq = Producer({**config.producer_config(), "logger": log})
     stats = Stats()
 
     log.info(

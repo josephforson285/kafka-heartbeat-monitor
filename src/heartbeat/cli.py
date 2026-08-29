@@ -25,7 +25,7 @@ def cmd_init_db(config: Config, _args: argparse.Namespace) -> int:
 
 
 def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
-    admin = AdminClient({"bootstrap.servers": config.bootstrap_servers})
+    admin = AdminClient({"bootstrap.servers": config.bootstrap_servers, "logger": log})
     existing = admin.list_topics(timeout=10).topics
 
     missing = []
@@ -77,7 +77,7 @@ def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
 
 def cmd_topic_info(config: Config, _args: argparse.Namespace) -> int:
     """Leader and in-sync replicas per partition — replication is invisible otherwise."""
-    admin = AdminClient({"bootstrap.servers": config.bootstrap_servers})
+    admin = AdminClient({"bootstrap.servers": config.bootstrap_servers, "logger": log})
     metadata = admin.list_topics(timeout=10)
 
     print(f"brokers: {sorted(metadata.brokers)}")

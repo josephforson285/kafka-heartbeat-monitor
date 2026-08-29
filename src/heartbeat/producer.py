@@ -21,7 +21,9 @@ class HeartbeatProducer:
     """
 
     def __init__(self, config: Config) -> None:
-        self._producer = Producer(config.producer_config())
+        # hand librdkafka our logger, or its C-level messages go straight to
+        # stderr unformatted and read like crashes next to our own output
+        self._producer = Producer({**config.producer_config(), "logger": log})
         self._topic = config.raw_topic.name
         self.delivered = 0
         self.failed = 0
