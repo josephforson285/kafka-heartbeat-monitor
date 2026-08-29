@@ -1,0 +1,27 @@
+[project]
+name = "heartbeat"
+version = "0.1.0"
+description = "Real-time heart rate monitoring pipeline: Kafka -> PostgreSQL -> Grafana"
+requires-python = ">=3.11"
+dependencies = [
+    "confluent-kafka>=2.6",
+    "psycopg[binary]>=3.2",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+heartbeat = "heartbeat.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

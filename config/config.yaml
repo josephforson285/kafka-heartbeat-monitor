@@ -1,0 +1,56 @@
+kafka:
+  bootstrap_servers: localhost:9092
+
+  topics:
+    raw:
+      name: heartbeat.raw
+      # 3 so a consumer group can hold more than one member and rebalance
+      partitions: 3
+      replication_factor: 1
+    dlq:
+      name: heartbeat.dlq
+      partitions: 1
+      replication_factor: 1
+
+  producer:
+    acks: all
+    enable.idempotence: true
+    linger.ms: 20
+    compression.type: snappy
+    retries: 10
+    delivery.timeout.ms: 120000
+
+  consumer:
+    group.id: heartbeat-writer
+    auto.offset.reset: earliest
+    # offsets are committed by hand, after the rows are durable
+    enable.auto.commit: false
+    max.poll.interval.ms: 300000
+    session.timeout.ms: 45000
+
+generator:
+  customers: 50
+  readings_per_second: 25
+  seed: 42
+  # share of readings deliberately emitted as sensor faults / alerting values
+  fault_rate: 0.02
+  anomaly_rate: 0.05
+
+heart_rate:
+  # outside these bounds a reading is a sensor fault, not a patient event
+  min_plausible: 20
+  max_plausible: 250
+  # clinical bands; a reading can be alerting and still be real data
+  bradycardia_below: 60
+  tachycardia_above: 100
+  critical_above: 180
+
+consumer:
+  batch_size: 500
+  batch_timeout_seconds: 2.0
+
+database:
+  host: localhost
+  port: 5434
+  name: heartbeat
+  # user and password come from .env
