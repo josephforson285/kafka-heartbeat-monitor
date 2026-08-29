@@ -1,11 +1,12 @@
-17:48:02 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:48:02 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-%6|1788018494.342|FAIL|rdkafka#consumer-1| [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 12087ms in state UP)
-17:48:29 INFO    heartbeat.consumer   shutdown requested
-17:48:29 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:48:29 INFO    heartbeat.consumer   consumed=11389 inserted=5287 duplicates=5890 rejected=97
-17:49:12 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
-17:49:12 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
-17:49:17 INFO    heartbeat.consumer   no messages left, stopping
-17:49:17 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
-17:49:17 INFO    heartbeat.consumer   consumed=8616 inserted=8446 duplicates=0 rejected=170
+17:54:32 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+17:54:32 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+17:54:46 INFO    heartbeat.consumer   FAIL [rdkafka#consumer-1] [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14298ms in state UP)
+17:54:46 INFO    heartbeat.consumer   FAIL [rdkafka#producer-2] [thrd:localhost:9094/2]: localhost:9094/2: Disconnected: connection closed by peer: receive 0 after POLLIN (after 14124ms in state UP)
+17:55:01 INFO    heartbeat.consumer   shutdown requested
+17:55:01 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+17:55:01 INFO    heartbeat.consumer   consumed=11857 inserted=5745 duplicates=5890 rejected=107
+17:55:42 INFO    heartbeat.consumer   consuming heartbeat.raw as group proof4
+17:55:42 INFO    heartbeat.consumer   partitions assigned: [0, 1, 2]
+17:55:47 INFO    heartbeat.consumer   no messages left, stopping
+17:55:47 INFO    heartbeat.consumer   partitions revoked: [0, 1, 2]
+17:55:47 INFO    heartbeat.consumer   consumed=8148 inserted=7988 duplicates=0 rejected=160

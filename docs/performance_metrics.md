@@ -15,16 +15,20 @@ Producer and consumer live together at 200 readings/second:
 | Metric | RF=1, single broker | RF=3, `min.insync.replicas=2` |
 |---|---|---|
 | Rows measured | 3925 | 3925 |
-| p50 | 128 ms | **129 ms** |
-| p95 | 230 ms | **230 ms** |
-| max | 696 ms | 530 ms |
+| p50 | 128 ms | **133 ms** |
+| p95 | 230 ms | **244 ms** |
+| max | 696 ms | 1188 ms |
 
 The right-hand column is what the pipeline runs today. The producer now waits for a
 second broker to hold the write before it is acknowledged, rather than only the
-leader — but across four runs the RF=3 p50 landed between 129 ms and 134 ms against
+leader — but across five runs the RF=3 p50 landed between 129 ms and 134 ms against
 128 ms unreplicated, which is inside run-to-run variation rather than a measurable
-cost. At this rate the batching dominates; replication would start to show at
-throughputs where the network round trip is no longer hidden by it.
+cost. At this rate the consumer's batching dominates; replication would start to show
+at throughputs where the network round trip is no longer hidden by it.
+
+Read p50 and p95, not max. `max` is a single worst sample and swung between 530 ms
+and 1188 ms across the same five runs — one slow batch, a container scheduling
+hiccup, and it moves. The percentiles barely shifted.
 
 Most of the p50 is the consumer's own batching: it waits up to
 `batch_timeout_seconds: 2.0` to fill a batch of 500, so a reading arriving early in

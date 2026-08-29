@@ -113,7 +113,7 @@ validation would still be stopped.
 | E16 | Alert fires on a real condition | Ingest readings above the critical threshold | Rule goes `pending` then `firing` with value 1 | Pass |
 | E17 | Topics are replicated | `heartbeat topic-info` | Every partition `replicas [1,2,3] isr [1,2,3]` | Pass |
 | E18 | A topic that exists but does not match config | Recreate the DLQ at RF=1, run `create-topics` | Refused with the mismatch named, exit 1 | Pass |
-| E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Ingestion continues (7832 → 10574 rows) | Pass |
+| E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Row count keeps climbing while the broker is down; exact figures in `proof4-*` | Pass |
 | E20 | Leadership fails over | Compare `topic-info` before and during | Partition 2 leader moves from broker 2 to 3 | Pass |
 | E21 | In-sync replicas shrink | `topic-info` while one broker is down | All 4 partitions under-replicated, missing [2] | Pass |
 | E22 | The broker rejoins | `docker compose start kafka2` | ISR returns to [1,2,3] on every partition | Pass |
