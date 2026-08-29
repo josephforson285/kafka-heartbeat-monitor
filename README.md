@@ -1,5 +1,7 @@
 # Real-Time Customer Heart Beat Monitoring
 
+[![CI](https://github.com/josephforson285/kafka-heartbeat-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/josephforson285/kafka-heartbeat-monitor/actions/workflows/ci.yml)
+
 A streaming pipeline that simulates heart rate sensors, moves the readings through
 Apache Kafka, validates and classifies them, stores them in PostgreSQL, and shows
 them on a Grafana dashboard with an alert for patients in a critical range.
@@ -196,10 +198,23 @@ See [docs/performance_metrics.md](docs/performance_metrics.md).
 .venv/bin/python -m pytest
 ```
 
-43 tests covering the event contract's rejection paths, the classification band
-boundaries, and configuration validation. They are pure functions — no broker or
-database needed, and the suite runs in well under a second. The end-to-end
-behaviour is covered by the demo script instead.
+43 unit tests covering the event contract's rejection paths, the classification band
+boundaries either side of every threshold, and configuration validation. They are
+pure functions — no broker or database — and run in under a second.
+
+Eleven more test the guarantees that live in the DDL rather than in Python: that
+`ON CONFLICT` really does suppress a replayed batch, that a batch failing a `CHECK`
+constraint rolls back completely, and that a reject payload which is not valid UTF-8
+can still be stored. Those truncate their tables, so they are skipped unless you opt
+in against a disposable database:
+
+```bash
+HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbeat password=..." \
+HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
+```
+
+CI runs all 54 against a real PostgreSQL service on every push. End-to-end behaviour
+is covered by the demo script instead.
 
 ## Layout
 

@@ -1,12 +1,20 @@
 # Test plan
 
-Two layers. Unit tests cover the pure logic and run in under a second with no
-infrastructure; the demo script covers the behaviour that only appears when a real
-broker, a real database and a real crash are involved.
+Three layers. Unit tests cover the pure logic with no infrastructure; integration
+tests cover the guarantees that live in the DDL rather than in Python; the demo
+script covers what only appears with a real broker and a real crash.
 
 ```bash
 .venv/bin/python -m pytest            # 43 unit tests
 ./scripts/demo_failure_modes.sh       # end-to-end proofs (resets the stack)
+```
+
+The 11 integration tests are skipped unless pointed at a disposable database, since
+they truncate their tables. CI runs all 54 on every push.
+
+```bash
+HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbeat password=..." \
+HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
 ```
 
 ## Unit tests
@@ -42,6 +50,34 @@ U18 guards a real coupling — `HeartRateClass` and the `hr_class_known` constra
 `sql/001_schema.sql` are two independent lists of the same four values, and a new
 class added to one and not the other would fail at insert time in production rather
 than in the test suite.
+
+## Integration tests
+
+Against a real PostgreSQL. These exist because the deduplication guarantee is
+enforced by the schema, not by application code, and a mock would happily agree
+with whatever the code claims.
+
+| # | Case | Expected | Result |
+|---|---|---|---|
+| I1 | Schema applied to an empty database | Both tables present and empty | Pass |
+| I2 | A batch of readings written | Row count matches the batch | Pass |
+| I3 | The same batch written again | 0 inserted, total unchanged | Pass |
+| I4 | A batch overlapping a previous one | Only the new rows inserted | Pass |
+| I5 | The same reject written twice | Second is suppressed by `(partition, offset)` | Pass |
+| I6 | Reject payload is not valid UTF-8 | Stored — the column is `bytea` for this reason | Pass |
+| I7 | Heart rate of 900 | `CheckViolation` from the database | Pass |
+| I8 | Classification not in the constraint list | `CheckViolation` from the database | Pass |
+| I9 | A batch where one row violates a constraint | Whole batch rolls back, nothing stored | Pass |
+| I10 | Writing again after a failed batch | Succeeds — the connection is still usable | Pass |
+| I11 | `ingested_at` | Stamped by the database, at or after `event_time` | Pass |
+
+I9 is the one that justifies the transaction. Without it a batch could land half
+written while the committed offset claimed all of it had been stored — the exact
+gap that makes at-least-once delivery unsafe.
+
+I7 and I8 are defence in depth. The consumer already rejects those values before
+they reach the database; these assert that a future consumer which skipped
+validation would still be stopped.
 
 ## End-to-end tests
 
