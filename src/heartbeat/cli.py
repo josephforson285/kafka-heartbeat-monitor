@@ -26,14 +26,30 @@ def cmd_init_db(config: Config, _args: argparse.Namespace) -> int:
 
 def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
     admin = AdminClient({"bootstrap.servers": config.bootstrap_servers})
-    existing = set(admin.list_topics(timeout=10).topics)
+    existing = admin.list_topics(timeout=10).topics
 
     missing = []
+    mismatched = 0
     for spec in (config.raw_topic, config.dlq_topic):
-        if spec.name in existing:
-            log.info("topic %s already exists", spec.name)
-        else:
+        topic = existing.get(spec.name)
+        if topic is None:
             missing.append(spec)
+            continue
+        replication = max(len(p.replicas) for p in topic.partitions.values())
+        problem = spec.mismatch(len(topic.partitions), replication)
+        if problem:
+            log.error("topic %s %s", spec.name, problem)
+            mismatched += 1
+        else:
+            log.info("topic %s already exists and matches config", spec.name)
+
+    if mismatched:
+        log.error(
+            "refusing to continue: delete the topic and re-create it, or reassign "
+            "its partitions. Config claiming a durability guarantee the cluster is "
+            "not providing is worse than no config at all."
+        )
+        return 1
     if not missing:
         return 0
 
@@ -43,6 +59,7 @@ def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
                 spec.name,
                 num_partitions=spec.partitions,
                 replication_factor=spec.replication_factor,
+                config={"min.insync.replicas": str(spec.min_insync_replicas)},
             )
             for spec in missing
         ]
@@ -56,6 +73,30 @@ def cmd_create_topics(config: Config, _args: argparse.Namespace) -> int:
             log.error("could not create topic %s: %s", name, exc)
             failures += 1
     return 1 if failures else 0
+
+
+def cmd_topic_info(config: Config, _args: argparse.Namespace) -> int:
+    """Leader and in-sync replicas per partition — replication is invisible otherwise."""
+    admin = AdminClient({"bootstrap.servers": config.bootstrap_servers})
+    metadata = admin.list_topics(timeout=10)
+
+    print(f"brokers: {sorted(metadata.brokers)}")
+    for spec in (config.raw_topic, config.dlq_topic):
+        topic = metadata.topics.get(spec.name)
+        if topic is None:
+            print(f"\n{spec.name}: does not exist")
+            continue
+        print(f"\n{spec.name}")
+        for number, partition in sorted(topic.partitions.items()):
+            under = set(partition.replicas) - set(partition.isrs)
+            flag = f"   UNDER-REPLICATED, missing {sorted(under)}" if under else ""
+            print(
+                f"  partition {number}"
+                f"   leader {partition.leader}"
+                f"   replicas {sorted(partition.replicas)}"
+                f"   isr {sorted(partition.isrs)}{flag}"
+            )
+    return 0
 
 
 def cmd_produce(config: Config, args: argparse.Namespace) -> int:
@@ -85,6 +126,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     create_topics = sub.add_parser("create-topics", help="create the Kafka topics")
     create_topics.set_defaults(handler=cmd_create_topics)
+
+    topic_info = sub.add_parser(
+        "topic-info", help="show leader and in-sync replicas per partition"
+    )
+    topic_info.set_defaults(handler=cmd_topic_info)
 
     produce = sub.add_parser("produce", help="stream synthetic readings into Kafka")
     produce.add_argument("--count", type=int, help="stop after N readings")

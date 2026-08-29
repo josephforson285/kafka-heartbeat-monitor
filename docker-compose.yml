@@ -1,41 +1,83 @@
 name: heartbeat
 
+# Three brokers, so replication factor 3 is possible at all and losing one is
+# survivable. Everything identical between them is anchored here; only the node
+# id and the address each one advertises differ.
+x-kafka: &kafka
+  image: apache/kafka:4.0.0
+  healthcheck:
+    test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+    interval: 10s
+    timeout: 10s
+    retries: 12
+    start_period: 20s
+
+x-kafka-env: &kafka-env
+  CLUSTER_ID: rsA1NvwVTKKzrN2_PACg8g
+  KAFKA_PROCESS_ROLES: broker,controller
+  KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+
+  # Container ports are identical across brokers — separate network namespaces —
+  # so only the published port and the advertised address vary.
+  KAFKA_LISTENERS: CONTROLLER://:9093,INTERNAL://:19092,EXTERNAL://:9092
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+  KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+  KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+  # The internal topics hold committed offsets. Leaving these at 1 while the data
+  # topic is replicated would survive a broker loss but forget where the consumer
+  # had got to.
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+
+  # off, so a topic only ever exists because create-topics made it. Left on, a
+  # typo'd topic name silently produces a new one at the broker defaults —
+  # one partition, no replication — and real data lands in it unnoticed.
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  KAFKA_LOG_RETENTION_HOURS: 168
+  # bounded so three JVMs stay predictable on a laptop and on a CI runner
+  KAFKA_HEAP_OPTS: -Xmx512M -Xms512M
+
 services:
-  kafka:
-    image: apache/kafka:4.0.0
-    container_name: heartbeat-kafka
+  kafka1:
+    <<: *kafka
+    container_name: heartbeat-kafka1
     ports:
       - "9092:9092"
     environment:
+      <<: *kafka-env
       KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      CLUSTER_ID: rsA1NvwVTKKzrN2_PACg8g
-
-      # Two listeners on purpose: containers reach the broker at kafka:19092,
-      # host processes at localhost:9092. A single listener would advertise one
-      # address that only works from one side.
-      KAFKA_LISTENERS: CONTROLLER://:9093,INTERNAL://:19092,EXTERNAL://:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-
-      # single broker, so nothing can be replicated further than itself
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      # no reason to wait for stragglers in a lab; makes rebalances instant
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://localhost:9092
     volumes:
-      - kafka_data:/var/lib/kafka/data
-    healthcheck:
-      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 20s
+      - kafka1_data:/var/lib/kafka/data
+
+  kafka2:
+    <<: *kafka
+    container_name: heartbeat-kafka2
+    ports:
+      - "9094:9092"
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:19092,EXTERNAL://localhost:9094
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+
+  kafka3:
+    <<: *kafka
+    container_name: heartbeat-kafka3
+    ports:
+      - "9096:9092"
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka3:19092,EXTERNAL://localhost:9096
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
 
   postgres:
     image: postgres:17
@@ -84,6 +126,8 @@ services:
       retries: 10
 
 volumes:
-  kafka_data:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
   postgres_data:
   grafana_data:

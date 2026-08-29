@@ -24,6 +24,33 @@ class TopicSpec:
     name: str
     partitions: int
     replication_factor: int
+    min_insync_replicas: int = 1
+
+    def __post_init__(self) -> None:
+        if self.min_insync_replicas > self.replication_factor:
+            # such a topic can never accept a write; better to say so at load time
+            raise ConfigError(
+                f"topic {self.name}: min_insync_replicas "
+                f"({self.min_insync_replicas}) exceeds replication_factor "
+                f"({self.replication_factor})"
+            )
+
+    def mismatch(self, partitions: int, replication_factor: int) -> str | None:
+        """How a live topic differs from this spec, if it does.
+
+        A topic that already exists is not necessarily the topic you asked for.
+        Reporting "already exists" without checking is how config comes to claim a
+        durability guarantee the cluster is not providing.
+        """
+        problems = []
+        if partitions != self.partitions:
+            problems.append(f"has {partitions} partitions, config says {self.partitions}")
+        if replication_factor != self.replication_factor:
+            problems.append(
+                f"has replication factor {replication_factor}, "
+                f"config says {self.replication_factor}"
+            )
+        return "; ".join(problems) or None
 
 
 @dataclass(frozen=True, slots=True)

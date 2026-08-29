@@ -1,16 +1,23 @@
 kafka:
-  bootstrap_servers: localhost:9092
+  # all three, so startup survives one broker being down; one would be enough to
+  # bootstrap and discover the rest
+  bootstrap_servers: localhost:9092,localhost:9094,localhost:9096
 
   topics:
     raw:
       name: heartbeat.raw
       # 3 so a consumer group can hold more than one member and rebalance
       partitions: 3
-      replication_factor: 1
+      replication_factor: 3
+      # what gives acks=all its meaning: with 2 required, a write is refused
+      # rather than accepted onto a single surviving copy. 2 of 3 still lets one
+      # broker die without stopping ingestion.
+      min_insync_replicas: 2
     dlq:
       name: heartbeat.dlq
       partitions: 1
-      replication_factor: 1
+      replication_factor: 3
+      min_insync_replicas: 2
 
   producer:
     acks: all
