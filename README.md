@@ -73,6 +73,10 @@ Every stage is re-runnable; running any of them twice is a no-op the second time
 `--drain` stops the consumer once it is caught up, which is what the tests and the
 demo script use.
 
+A `Makefile` wraps the longer incantations — `make up`, `make test-all`,
+`make proofs`, `make lag`, `make reset`. Run `make help` for the list. Producing and
+consuming stay on the CLI, where the flags are discoverable.
+
 ## Design decisions
 
 ### The brief says ZooKeeper; this uses KRaft
