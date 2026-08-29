@@ -125,6 +125,11 @@ validation would still be stopped.
 | E28 | Every broker down, producer running | Stop all three, then produce | `delivered=0 unflushed=200`, logged as an error, exit 1 — never silently dropped | Pass |
 | E29 | Every broker down, consumer running | Stop all three for 20s, restart | Consumer survives, session times out, partitions reassigned, catches up 7,247 rows | Pass |
 | E30 | Consumer `SIGTERM` | Kill gracefully | Exit 0; restarting the same group consumes 0 — every batch was committed | Pass |
+| E31 | Contract gains a field | Inject `schema_version=2` plus two unknown keys | Stored — unknown keys ignored, old consumer unaffected | Pass |
+| E32 | Required field removed | Inject a payload without `heart_rate` | Rejected: `missing field(s): heart_rate` | Pass |
+| E33 | Field type changed | `heart_rate` as `"72"` | Rejected: `heart_rate must be an integer` | Pass |
+| E34 | Field renamed | `bpm` in place of `heart_rate` | Rejected: `missing field(s): heart_rate` | Pass |
+| E35 | Field meaning changed | Structurally valid payload, different semantics | **Stored, undetected** — the known gap | Pass |
 
 E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
 could just mean nothing was actually broken.
@@ -198,6 +203,11 @@ correct behaviour rather than a failure, but it is asserted nowhere.
 
 **Losing PostgreSQL and Kafka at once.** E24 covers the database going away on its
 own. Both failing together is untested.
+
+**Semantic drift in the contract (E35).** A change to what a field means, with no
+change to its shape, is undetectable here. `schema_version` is carried but not
+stored, so affected rows cannot be isolated by version — only by `ingested_at` or
+offset range. The reasoning is in the README; the escape hatch is one column.
 
 **TLS and authentication.** Every listener is plaintext. Out of scope for this lab.
 

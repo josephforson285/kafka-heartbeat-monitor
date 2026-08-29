@@ -118,6 +118,52 @@ Contract violations — malformed JSON, missing fields, a non-UUID `event_id`, a
 timestamp with no offset — take the same path as sensor faults. Nothing is silently
 discarded; every rejection is queryable with the partition and offset it came from.
 
+### What a change to the message contract costs
+
+Each kind of change was pushed through the running pipeline to see what it actually
+does, rather than reasoned about:
+
+| Change | Result |
+|---|---|
+| Add a field, bump `schema_version` | **stored** — unknown keys are ignored, so old consumers keep working |
+| Remove a required field | rejected: `missing field(s): heart_rate` |
+| Change a type | rejected: `heart_rate must be an integer, got '72'` |
+| Rename a field | rejected: `missing field(s): heart_rate` |
+| Change what a field *means* | **stored, silently wrong** |
+
+Structural breakage is loud. Every one lands in `heartbeat_rejects` naming itself,
+carrying the partition and offset it came from, and the pipeline keeps running.
+
+The last row is the dangerous one, and it is not hypothetical — units and timezones
+are among the most common real data faults. A firmware update reporting a different
+unit, or `event_time` arriving in local time, produces structurally perfect JSON.
+It parses, classifies and stores. Nothing rejects it and nothing alerts. Every
+affected reading is wrong and this system will not tell you.
+
+### `schema_version` is carried, and deliberately not enforced
+
+The contract includes `schema_version`. The consumer reads it and does not gate on
+it, because rejecting an unknown version would turn a backward-compatible change
+into a total outage — the opposite of what a version field should buy.
+
+It is also **not stored**. A v2 message with extra fields lands in
+`heartbeat_readings` indistinguishable from a v1 one: same columns, nothing to
+separate them. That is a deliberate trade resting on four assumptions, all true here:
+
+1. **One producer implementation.** Nothing else writes to this topic.
+2. **Semantic changes arrive with structural ones**, so validation catches them —
+   the assumption the table above shows to be the weakest.
+3. **Both ends ship together.** Producer and consumer are one repository and one
+   deploy, so there is no window where a v2 producer runs against a v1 consumer.
+4. **Quarantine can be time-based.** Every row records `ingested_at`,
+   `kafka_partition` and `kafka_offset`, so a bad producer's output can be found by
+   time window or offset range. Coarser than filtering on a version, but sufficient.
+
+If any of those stops holding — a second team producing, or independent deploys —
+the fix is one column: add `schema_version` to `heartbeat_readings` and to the
+insert. It is deliberately not there yet, because a column nobody queries is not
+free to a reader trying to understand the schema.
+
 ### Three brokers, so replication is real
 
 Replication factor is how many *different* brokers hold a copy of a partition, so
