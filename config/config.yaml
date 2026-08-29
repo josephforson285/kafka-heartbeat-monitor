@@ -26,7 +26,10 @@ kafka:
     # offsets are committed by hand, after the rows are durable
     enable.auto.commit: false
     max.poll.interval.ms: 300000
-    session.timeout.ms: 45000
+    # a consumer killed outright keeps its partitions until this expires, so the
+    # lab value is short; production trades that against tolerating GC pauses
+    session.timeout.ms: 10000
+    heartbeat.interval.ms: 3000
 
 generator:
   customers: 50

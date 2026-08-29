@@ -31,9 +31,17 @@ def run_consumer(
 ) -> int:
     options = config.consumer_config(group_id)
     consumer = Consumer(options)
-    consumer.subscribe(
-        [config.raw_topic.name], on_assign=_log_assign, on_revoke=_log_revoke
-    )
+    assignment: set[int] = set()
+
+    def on_assign(_consumer: Consumer, partitions) -> None:
+        assignment.update(p.partition for p in partitions)
+        log.info("partitions assigned: %s", sorted(p.partition for p in partitions))
+
+    def on_revoke(_consumer: Consumer, partitions) -> None:
+        assignment.difference_update(p.partition for p in partitions)
+        log.info("partitions revoked: %s", sorted(p.partition for p in partitions))
+
+    consumer.subscribe([config.raw_topic.name], on_assign=on_assign, on_revoke=on_revoke)
     store = HeartbeatStore(config.dsn)
     dlq = Producer(config.producer_config())
     stats = Stats()
@@ -42,17 +50,26 @@ def run_consumer(
         "consuming %s as group %s", config.raw_topic.name, options["group.id"]
     )
 
+    idle_polls = 0
     with shutdown_on_signal() as stop:
         while not stop:
             messages = consumer.consume(
                 config.consumer.batch_size, config.consumer.batch_timeout_seconds
             )
             if not messages:
-                if drain:
+                idle_polls += 1
+                # an empty poll before the group has given us anything means the
+                # rebalance is still pending, not that the topic is drained. A
+                # consumer killed with SIGKILL holds its partitions until the
+                # broker's session timeout expires.
+                if drain and assignment and idle_polls > 1:
                     log.info("no messages left, stopping")
                     break
+                if not assignment and idle_polls % 5 == 0:
+                    log.info("waiting for a partition assignment")
                 continue
 
+            idle_polls = 0
             readings, rejects, poison = _sort_batch(messages, config, stats)
             inserted, rejected = store.write_batch(readings, rejects)
 
@@ -122,11 +139,3 @@ def _forward_to_dlq(producer: Producer, topic: str, messages: list[Message]) -> 
         except BufferError:
             log.warning("dlq queue full, replay copy dropped")
     producer.poll(0)
-
-
-def _log_assign(_consumer: Consumer, partitions) -> None:
-    log.info("partitions assigned: %s", sorted(p.partition for p in partitions))
-
-
-def _log_revoke(_consumer: Consumer, partitions) -> None:
-    log.info("partitions revoked: %s", sorted(p.partition for p in partitions))
