@@ -56,6 +56,9 @@ heart_rate:
   critical_above: 180
 
 consumer:
+  # the dial between throughput and replay cost: the offset commit after each batch
+  # is one round trip, so a bigger batch amortises it and replays more after a crash.
+  # 500 measures 14,500 msg/s against a workload of 200 — see docs/performance_metrics.md
   batch_size: 500
   batch_timeout_seconds: 2.0
 

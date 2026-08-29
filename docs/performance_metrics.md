@@ -40,17 +40,52 @@ showed an average of 434 seconds for exactly that reason.
 
 ## Throughput
 
-The producer paces itself against a fixed clock, so its rate is whatever `--rate`
-asks for. The consumer was never the bottleneck at these rates:
+The lab runs at 200 readings/second. The pipeline was ramped until it broke to find
+out how much headroom that is.
 
-| Run | Result |
-|---|---|
-| 2000 messages, backlog drain | consumed in ~6 s (~330 msg/s) |
-| 200 msg/s sustained, two consumers | lag 0–2 per partition |
-| 7500 messages, single consumer | consumed in ~20 s |
+| Target rate | Producer achieved | Consumer lag at the end | |
+|---|---|---|---|
+| 200 /s | 196 /s | 0 | keeps up |
+| 1,000 /s | 983 /s | 0 | keeps up |
+| 4,000 /s | 3,927 /s | 0 | keeps up |
+| 8,000 /s | 7,747 /s | 0 | keeps up |
+| 16,000 /s | 15,464 /s | 12,321 | falls behind |
+| 32,000 /s | 30,715 /s | 145,821 | falls behind |
 
-Lag stayed at 0–2 messages per partition throughout the two-consumer run, meaning
-the consumers were keeping pace with the producer rather than falling behind.
+The producer tracks its target to within about 4% even at 32,000/s, so it is not the
+limit. Draining a 139,321-message backlog with nothing else running measures the
+consumer directly: **9,753 messages/second sustained**, which is where the ramp turns
+over. That is roughly 50× the workload this project actually carries.
+
+### Where the limit is, and why it is the right one
+
+Neither obvious suspect is responsible. PostgreSQL writes 34,538 rows/second through
+the same `write_batch` at the configured batch size, and parsing plus classification
+runs at 297,528 messages/second. Both are far above the pipeline.
+
+The cost is `consumer.commit(asynchronous=False)` — one network round trip to the
+group coordinator per batch. Varying only the batch size, against an identical
+489,321-message backlog:
+
+| `batch_size` | Throughput | Commits performed |
+|---|---|---|
+| 500 | 14,521 msg/s | 978 |
+| 2,000 | 25,725 msg/s | 244 |
+| 5,000 | 31,792 msg/s | 97 |
+
+Throughput more than doubles as the commit count falls tenfold, and at 5,000 it
+converges on the 34,538 rows/second PostgreSQL can absorb — the database becomes the
+limit only once the commits stop being one.
+
+So the bottleneck is the safety mechanism. Committing synchronously after the write
+is what makes a crash replay rather than lose, and it is also what caps throughput.
+`batch_size` is the dial between them: a larger batch amortises the commit over more
+rows and replays more of them after a crash.
+
+500 stays the default. It gives 14,521 messages/second against a workload of 200,
+and a crash costs at most 500 replayed rows that the primary key absorbs for free.
+Buying throughput this project does not need, at the price of a longer replay, would
+be the wrong trade.
 
 ## Data profile
 
@@ -120,7 +155,7 @@ panels just as well.
 
 | Setting | Value | Effect |
 |---|---|---|
-| `consumer.batch_size` | 500 | rows per transaction |
+| `consumer.batch_size` | 500 | rows per transaction, and per offset commit — the throughput dial |
 | `consumer.batch_timeout_seconds` | 2.0 | upper bound on how long a batch waits to fill |
 | `producer.linger.ms` | 20 | producer-side batching before a send |
 | `producer.acks` | all | waits for the in-sync replicas before acknowledging |

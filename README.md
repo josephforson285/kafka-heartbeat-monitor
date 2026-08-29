@@ -293,6 +293,9 @@ At 200 readings/second with producer and consumer running together, measured as
 |---|---|---|---|
 | 133 ms | 244 ms | 1188 ms | 3925 |
 
+The consumer sustains 9,753 messages/second — about 50× this workload. The limit is
+the synchronous offset commit, one round trip per batch, which is also the thing that
+makes a crash replay rather than lose. `batch_size` is the dial between the two.
 See [docs/performance_metrics.md](docs/performance_metrics.md).
 
 ## Tests
