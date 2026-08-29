@@ -5,7 +5,7 @@ tests cover the guarantees that live in the DDL rather than in Python; the demo
 script covers what only appears with a real broker and a real crash.
 
 ```bash
-.venv/bin/python -m pytest            # 43 unit tests
+.venv/bin/python -m pytest            # 61 unit tests
 ./scripts/demo_failure_modes.sh       # end-to-end proofs (resets the stack)
 ```
 
@@ -20,6 +20,13 @@ not recorded once — each run attaches its logs as a build artifact.
 ```bash
 HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbeat password=..." \
 HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
+```
+
+The demo script's reset (`docker compose down -v`) drops this database along with
+everything else, so recreate it when you have just run the proofs:
+
+```bash
+docker compose exec postgres psql -U heartbeat -d postgres -c "CREATE DATABASE heartbeat_test;"
 ```
 
 ## Unit tests
@@ -89,7 +96,7 @@ validation would still be stopped.
 | # | Case | Method | Expected | Result |
 |---|---|---|---|---|
 | E1 | Topics are created | `heartbeat create-topics` | `heartbeat.raw` with 3 partitions, `heartbeat.dlq` with 1 | Pass |
-| E2 | Creation is idempotent | Run it twice | Second run reports "already exists", no error | Pass |
+| E2 | Creation is idempotent | Run it twice | Second run reports "already exists and matches config", no error | Pass |
 | E3 | Schema on a fresh volume | `docker compose up -d` | 2 tables, 7 indexes, no manual step | Pass |
 | E4 | Schema is idempotent | `heartbeat init-db` on an existing database | Applies cleanly, no error | Pass |
 | E5 | Readings reach Kafka | `heartbeat produce --count 500` | `sent=500 delivered=500 failed=0` | Pass |
@@ -106,7 +113,7 @@ validation would still be stopped.
 | E16 | Alert fires on a real condition | Ingest readings above the critical threshold | Rule goes `pending` then `firing` with value 1 | Pass |
 | E17 | Topics are replicated | `heartbeat topic-info` | Every partition `replicas [1,2,3] isr [1,2,3]` | Pass |
 | E18 | A topic that exists but does not match config | Recreate the DLQ at RF=1, run `create-topics` | Refused with the mismatch named, exit 1 | Pass |
-| E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Ingestion continues (7855 → 10313 rows) | Pass |
+| E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Ingestion continues (7832 → 10574 rows) | Pass |
 | E20 | Leadership fails over | Compare `topic-info` before and during | Partition 2 leader moves from broker 2 to 3 | Pass |
 | E21 | In-sync replicas shrink | `topic-info` while one broker is down | All 4 partitions under-replicated, missing [2] | Pass |
 | E22 | The broker rejoins | `docker compose start kafka2` | ISR returns to [1,2,3] on every partition | Pass |
@@ -141,7 +148,7 @@ and passed for the wrong reason.
 ## A second defect, found by adding replication
 
 The first three-broker run reported
-`PASS ingestion continued through the broker failure (7846 -> 19623 rows)` — the
+`PASS ingestion continued through the broker failure` — the
 important assertion, green — while `heartbeat.dlq` was quietly running at
 replication factor 1.
 
@@ -158,7 +165,15 @@ worse than a failing one.
 
 ## Not covered
 
-Broker failure and recovery, since there is one broker and replication factor 1 —
-losing it loses data by construction, which is a known property rather than a
-testable behaviour here. Multi-broker failover, TLS and authentication are out of
-scope for this lab.
+**Losing the host.** The three brokers are containers on one machine, so E19–E23
+prove a broker *process* can die, not that the hardware under all three can. Real
+clusters spread brokers across failure domains; nothing here tests that.
+
+**Losing two brokers at once.** With `min.insync.replicas: 2`, writes stop — by
+design, since one surviving copy is not the guarantee the config promises. That is
+correct behaviour rather than a failure, but it is asserted nowhere.
+
+**TLS and authentication.** Every listener is plaintext. Out of scope for this lab.
+
+**Grafana alert delivery.** E16 proves the rule evaluates and fires. Whether a
+notification reaches anyone is untested — no contact point is configured.

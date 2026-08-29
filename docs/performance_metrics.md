@@ -15,14 +15,16 @@ Producer and consumer live together at 200 readings/second:
 | Metric | RF=1, single broker | RF=3, `min.insync.replicas=2` |
 |---|---|---|
 | Rows measured | 3925 | 3925 |
-| p50 | 128 ms | **134 ms** |
-| p95 | 230 ms | **237 ms** |
-| max | 696 ms | 657 ms |
+| p50 | 128 ms | **129 ms** |
+| p95 | 230 ms | **230 ms** |
+| max | 696 ms | 530 ms |
 
-The right-hand column is what the pipeline runs today. Replication costs about 6 ms
-at p50 — the producer now waits for a second broker to hold the write before it is
-acknowledged, rather than only the leader. That is the price of `acks=all` meaning
-something, and at this scale it is not worth optimising away.
+The right-hand column is what the pipeline runs today. The producer now waits for a
+second broker to hold the write before it is acknowledged, rather than only the
+leader — but across four runs the RF=3 p50 landed between 129 ms and 134 ms against
+128 ms unreplicated, which is inside run-to-run variation rather than a measurable
+cost. At this rate the batching dominates; replication would start to show at
+throughputs where the network round trip is no longer hidden by it.
 
 Most of the p50 is the consumer's own batching: it waits up to
 `batch_timeout_seconds: 2.0` to fill a batch of 500, so a reading arriving early in
@@ -48,27 +50,27 @@ the consumers were keeping pace with the producer rather than falling behind.
 
 ## Data profile
 
-12,599 readings and 243 rejects accumulated across the demo runs.
+19,623 readings and 382 rejects accumulated across the demo runs.
 
 | Classification | Count | Share |
 |---|---|---|
-| normal | 10,069 | 79.9% |
-| bradycardia | 2,205 | 17.5% |
-| tachycardia | 198 | 1.6% |
-| critical | 127 | 1.0% |
+| normal | 15,580 | 79.4% |
+| bradycardia | 3,502 | 17.8% |
+| tachycardia | 293 | 1.5% |
+| critical | 248 | 1.3% |
 
 Bradycardia is over-represented against the configured `anomaly_rate` of 5% because
 the random walk starts each customer at a baseline between 58 and 88 bpm, so
 customers at the low end drift below 60 naturally. That is realistic — a resting
 heart rate in the 50s is common — rather than a fault.
 
-Rejects break down as 238 sensor faults (impossible values from the generator's
+Rejects break down as 377 sensor faults (impossible values from the generator's
 `fault_rate: 0.02`) and 5 contract violations (the payloads injected deliberately
 by proof 3):
 
 | Reason | Count |
 |---|---|
-| heart_rate outside plausible range 20–250 | 238 |
+| heart_rate outside plausible range 20–250 | 377 |
 | not valid JSON | 2 |
 | missing field(s) | 1 |
 | heart_rate must be an integer | 1 |
@@ -76,8 +78,8 @@ by proof 3):
 
 ## Storage
 
-`heartbeat_readings` is 3296 kB at 12,599 rows including its four indexes — roughly
-270 bytes per row, of which the row itself is about half. At 200 readings/second
+`heartbeat_readings` is 4984 kB at 19,623 rows including its four indexes — roughly
+260 bytes per row, of which the row itself is about half. At 200 readings/second
 that is about 4.6 GB per year of raw growth before any partitioning or retention
 policy.
 
@@ -89,6 +91,8 @@ policy.
 | `consumer.batch_timeout_seconds` | 2.0 | upper bound on how long a batch waits to fill |
 | `producer.linger.ms` | 20 | producer-side batching before a send |
 | `producer.acks` | all | waits for the in-sync replicas before acknowledging |
+| `replication_factor` | 3 | copies of each partition, on three brokers |
+| `min_insync_replicas` | 2 | copies required before a write is acknowledged |
 | `producer.compression.type` | snappy | trades CPU for network and disk |
 | `session.timeout.ms` | 10000 | how long a dead consumer holds its partitions |
 

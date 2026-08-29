@@ -11,7 +11,7 @@ them on a Grafana dashboard with an alert for patients in a critical range.
 ```mermaid
 flowchart LR
     G["Generator<br/>50 customers"] --> P["Producer<br/>acks=all, idempotent<br/>key = customer_id"]
-    P --> T[("heartbeat.raw<br/>3 partitions")]
+    P --> T[("heartbeat.raw<br/>3 partitions × 3 replicas<br/>brokers 1, 2, 3")]
     T --> C["Consumer group<br/>manual offsets<br/>validate → classify"]
     C -->|valid| R[("heartbeat_readings")]
     C -->|rejected| X[("heartbeat_rejects")]
@@ -48,15 +48,20 @@ Open Grafana at <http://localhost:3000> and the dashboard is already there.
 
 | Service | Port | Notes |
 |---|---|---|
-| Kafka | 9092 | KRaft, single broker |
+| Kafka | 9092, 9094, 9096 | three brokers, KRaft, no ZooKeeper |
 | PostgreSQL | 5434 | 5432 and 5433 avoid clashing with other local databases |
 | Grafana | 3000 | credentials from `.env` |
+
+Upgrading an existing stack: the broker service was renamed `kafka` → `kafka1`, so
+`docker compose down -v` leaves the old container behind holding port 9092. Use
+`docker compose down -v --remove-orphans`.
 
 ## Commands
 
 ```
 heartbeat init-db                        apply the database schema
-heartbeat create-topics                  create heartbeat.raw and heartbeat.dlq
+heartbeat create-topics                  create the topics, or verify they match config
+heartbeat topic-info                     leader and in-sync replicas per partition
 heartbeat produce [--count N] [--duration S] [--rate R]
 heartbeat consume [--group ID] [--max-messages N] [--drain]
 ```
@@ -209,7 +214,7 @@ before      partition 2   leader 2   replicas [1,2,3]   isr [1,2,3]
 one down    partition 2   leader 3   replicas [1,2,3]   isr [1,3]   UNDER-REPLICATED, missing [2]
 recovered   partition 2   leader 3   replicas [1,2,3]   isr [1,2,3]
 
-PASS  ingestion continued through the broker failure (7855 -> 10313 rows)
+PASS  ingestion continued through the broker failure (7832 -> 10574 rows)
 PASS  in-sync replicas degraded while it was down (4)
 PASS  in-sync replicas recovered (0)
 PASS  still no duplicates (19623)
@@ -220,7 +225,9 @@ Leadership moved off the dead broker on its own and the pipeline kept writing �
 leadership stays on broker 3 after recovery; Kafka does not move it back
 automatically.
 
-Logs from these runs are in [docs/sample_output/](docs/sample_output/), alongside
+The figures above are from the run whose logs are committed in
+[docs/sample_output/](docs/sample_output/); re-running the script regenerates both
+together. Alongside them is
 [database-contents.txt](docs/sample_output/database-contents.txt) — the table
 definition, the classification breakdown, recent rows with the partition and offset
 they came from, and the count that matters:
@@ -231,11 +238,13 @@ they came from, and the count that matters:
            5890 |               5890
 ```
 
-Consumer lag, at any time:
+Consumer lag, at any time. Note the internal listener: run inside a broker container,
+the external addresses advertise `localhost:909x`, which from in there resolves only
+to that same container, so any call needing a second broker times out.
 
 ```bash
 docker compose exec kafka1 /opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 --describe --group heartbeat-writer
+  --bootstrap-server kafka1:19092 --describe --group heartbeat-writer
 ```
 
 ## Performance
@@ -245,7 +254,7 @@ At 200 readings/second with producer and consumer running together, measured as
 
 | p50 | p95 | max | rows |
 |---|---|---|---|
-| 128 ms | 230 ms | 696 ms | 3925 |
+| 129 ms | 230 ms | 530 ms | 3925 |
 
 See [docs/performance_metrics.md](docs/performance_metrics.md).
 
@@ -255,8 +264,8 @@ See [docs/performance_metrics.md](docs/performance_metrics.md).
 .venv/bin/python -m pytest
 ```
 
-43 unit tests covering the event contract's rejection paths, the classification band
-boundaries either side of every threshold, and configuration validation. They are
+61 unit tests covering the event contract's rejection paths, the classification band
+boundaries either side of every threshold, and configuration loading and validation. They are
 pure functions — no broker or database — and run in under a second.
 
 Eleven more test the guarantees that live in the DDL rather than in Python: that
@@ -270,7 +279,14 @@ HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbea
 HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
 ```
 
-CI runs all 54 against a real PostgreSQL service, then brings up this repository's
+The demo script's reset (`docker compose down -v`) drops this database along with
+everything else, so recreate it when you have just run the proofs:
+
+```bash
+docker compose exec postgres psql -U heartbeat -d postgres -c "CREATE DATABASE heartbeat_test;"
+```
+
+CI runs all 72 against a real PostgreSQL service, then brings up this repository's
 own `docker-compose.yml` and runs `scripts/demo_failure_modes.sh` against it. So the
 failure-mode claims below are re-proven on every push rather than asserted once —
 and the logs are attached to each run as a build artifact.
@@ -288,6 +304,7 @@ src/heartbeat/
   consumer.py                 poll, validate, write, then commit
   db.py                       transactional batch upsert
   config.py                   typed config loading and validation
+  logging_conf.py             logging setup
   runtime.py                  cooperative shutdown
   cli.py                      the single entrypoint
 docker/grafana/               provisioned datasource, dashboard, alert
