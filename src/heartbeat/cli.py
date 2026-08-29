@@ -9,6 +9,7 @@ import psycopg
 from confluent_kafka.admin import AdminClient, NewTopic
 
 from .config import SCHEMA_SQL_PATH, Config, ConfigError, DEFAULT_CONFIG_PATH
+from .consumer import run_consumer
 from .logging_conf import configure
 from .producer import run_producer
 
@@ -60,6 +61,15 @@ def cmd_produce(config: Config, args: argparse.Namespace) -> int:
     return run_producer(config, count=args.count, duration=args.duration)
 
 
+def cmd_consume(config: Config, args: argparse.Namespace) -> int:
+    return run_consumer(
+        config,
+        group_id=args.group,
+        max_messages=args.max_messages,
+        drain=args.drain,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="heartbeat", description=__doc__)
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, help="path to config.yaml")
@@ -77,6 +87,14 @@ def build_parser() -> argparse.ArgumentParser:
     produce.add_argument("--count", type=int, help="stop after N readings")
     produce.add_argument("--duration", type=float, help="stop after N seconds")
     produce.set_defaults(handler=cmd_produce)
+
+    consume = sub.add_parser("consume", help="write readings from Kafka into PostgreSQL")
+    consume.add_argument("--group", help="override the consumer group id")
+    consume.add_argument("--max-messages", type=int, help="stop after N messages")
+    consume.add_argument(
+        "--drain", action="store_true", help="stop once the topic is caught up"
+    )
+    consume.set_defaults(handler=cmd_consume)
 
     return parser
 
