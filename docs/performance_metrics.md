@@ -47,30 +47,6 @@ The producer tracks its target to within 4% even at 32,000/s, so it is not the l
 Draining a 139,321-message backlog measures the consumer directly: **9,753 msg/s
 sustained** — roughly 50× this workload.
 
-### The bottleneck is the safety mechanism
-
-Neither obvious suspect is responsible: PostgreSQL writes **34,538 rows/s** through
-the same `write_batch`, and parsing plus classification runs at **297,528 msg/s**.
-
-The cost is `consumer.commit(asynchronous=False)` — one network round trip per batch.
-Varying only `batch_size` against an identical 489,321-message backlog:
-
-| `batch_size` | Throughput | Commits |
-|---|---|---|
-| 500 | 14,521 msg/s | 978 |
-| 2,000 | 25,725 msg/s | 244 |
-| 5,000 | 31,792 msg/s | 97 |
-
-Throughput more than doubles as commits fall tenfold, converging on PostgreSQL's
-34,538 — the database becomes the limit only once the commits stop being it.
-
-Committing synchronously after the write is what makes a crash replay rather than
-lose, and it is also what caps throughput. `batch_size` is the dial: a larger batch
-amortises the commit over more rows and replays more of them after a crash.
-
-**500 stays.** It gives 14,521 msg/s against a workload of 200, and a crash costs at
-most 500 replayed rows the primary key absorbs for free.
-
 ## Data profile
 
 19,623 readings and 382 rejects across the demo runs.

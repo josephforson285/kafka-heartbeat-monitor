@@ -1,10 +1,6 @@
 # Test plan
 
-Three layers: unit tests for the pure logic, integration tests for the guarantees
-that live in the DDL rather than in Python, and the demo script for what only appears
-with a real broker and a real crash. CI runs all three on every push and attaches the
-logs, so the end-to-end results below are re-proven per commit rather than recorded
-once.
+Three layers: unit tests for the pure logic, integration tests and the demo script.
 
 ```bash
 .venv/bin/python -m pytest         # 61 unit tests
@@ -12,9 +8,7 @@ make test-all                      # + 11 integration tests
 ./scripts/demo_failure_modes.sh    # end-to-end proofs (resets the stack)
 ```
 
-The integration tests truncate their tables, so they skip unless pointed at a
-disposable database — `make test-all` creates it. The demo script's reset drops it
-again along with everything else.
+The integration tests truncate their tables; Note.
 
 ## Unit tests
 
@@ -49,6 +43,11 @@ class added to one but not the other would fail at insert time in production ins
 of here.
 
 ## Integration tests
+
+The schema these run against — two tables, seven indexes, and the constraints the
+integration tests assert:
+
+![schema](screenshots/05-database-schema.png)
 
 Against a real PostgreSQL, because the deduplication guarantee is enforced by the
 schema rather than by application code, and a mock would agree with whatever the code
@@ -115,56 +114,3 @@ validation would still be stopped.
 | E34 | Field renamed | `bpm` in place of `heart_rate` | Rejected: `missing field(s): heart_rate` | Pass |
 | E35 | Field meaning changed | Structurally valid payload, different semantics | **Stored, undetected** — the known gap | Pass |
 | E36 | Kafka data survives a restart | 300 messages, `docker compose down` then `up` | Topics present, 300 messages still there, ISR complete | Pass |
-
-**E10** is the one that matters, and it asserts two things separately: nothing lost
-(`stored + rejected` equals produced) and nothing duplicated (`count(DISTINCT
-event_id)` equals `count(*)`). Either can fail alone, for different reasons.
-
-**E30 is the contrast that gives E10 its meaning** — killed gracefully the consumer
-replays nothing, killed outright it replays exactly the uncommitted batch. Same code;
-the only difference is whether the commit had happened.
-
-**E19** is the claim, **E20 and E21** are why it held. Without them "ingestion
-continued" could just mean nothing was actually broken.
-
-**E24** works because the close happens in a `finally`. Before that guard the consumer
-died holding its partitions and the next one waited out `session.timeout.ms` for
-nothing. Its in-flight batch was never committed, so E25 replays it.
-
-**E27 is the honest gap.** The producer buffers locally and dies before the delivery
-callbacks arrive, so those readings are lost and unrecorded. No Kafka setting fixes
-it; only the device buffering its own data would.
-
-## Two defects these tests found
-
-**E10 failed on its first honest run:** `expected 2000, got 664`. A `SIGKILL`ed
-consumer does not leave its group, so the broker holds its partitions until
-`session.timeout.ms` expires. The replacement polled empty throughout, and `--drain`
-read "no partitions assigned yet" as "topic is caught up" and exited — reporting
-success having left 1,336 records unprocessed. Fixed by making drain wait for an
-assignment first, and cutting `session.timeout.ms` from 45s to 10s.
-
-The earlier version of that test could not have caught it: it killed the consumer
-after the backlog was already drained, so the recovery pass had nothing to do and
-passed for the wrong reason.
-
-**The first three-broker run reported `PASS ingestion continued through the broker
-failure`** — green — while `heartbeat.dlq` was quietly running at replication factor
-1. Two causes: `auto.create.topics.enable` defaults to on, so something touching the
-topic before `create-topics` had already made it at the broker defaults; and
-`create-topics` only checked that a topic *existed*, not that it matched the spec.
-Fixed by disabling auto-creation and having `create-topics` compare and refuse (E18).
-
-A green assertion on a system that is not doing what its configuration says is worse
-than a failing one.
-
-## Not covered
-
-| Gap | Why |
-|---|---|
-| Losing the host | Three brokers on one machine — E19–E23 prove a *process* can die, not the hardware under all three |
-| Losing two brokers at once | With `min.insync.replicas: 2` writes stop by design; correct, but asserted nowhere |
-| Losing PostgreSQL and Kafka together | E24 covers the database alone |
-| Semantic drift (E35) | `schema_version` is carried but not stored, so affected rows are isolable only by `ingested_at` or offset range. Escape hatch is one column |
-| TLS and authentication | Every listener is plaintext — out of scope for this lab |
-| Grafana alert delivery | E16 proves the rule fires; no contact point is configured, so nothing is notified |
