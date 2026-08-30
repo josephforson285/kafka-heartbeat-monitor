@@ -278,6 +278,13 @@ t+80s   reporting=0    silent=50    the flip
 
 One story instead of two numbers that have to be reconciled.
 
+A count alone is still not actionable, though — it tells you three patients have
+gone quiet without telling you which three, and a silent patient appears in no other
+panel because every one of them is built from readings that patient is not sending.
+So `Patients gone silent — longest first` lists them with how long each has been
+quiet, sorted by the one you have heard from least recently. It is empty whenever
+the fleet is healthy.
+
 For a monitor this is the failure that matters most, because it is the one that
 looks like good news.
 

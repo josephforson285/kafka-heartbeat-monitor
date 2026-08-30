@@ -594,14 +594,86 @@
       "panels": []
     },
     {
+      "id": 11,
+      "type": "table",
+      "title": "Patients gone silent \u2014 longest first",
+      "description": "Which patients the 'gone silent' tile is counting, and how long each has been quiet. Without this the tile tells you a number you cannot act on: a silent patient appears in no other panel, because every other panel is built from readings they are not sending.",
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "silent_for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "orange",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 300
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT customer_id AS patient, max(event_time) AS last_seen, round(extract(epoch FROM now() - max(event_time))) AS silent_for FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1 HAVING max(event_time) < now() - interval '60 seconds' ORDER BY max(event_time) ASC"
+        }
+      ]
+    },
+    {
       "id": 5,
       "type": "table",
       "title": "Patients ranked by episodes in this window",
       "description": "Counts over the whole window, not the latest reading. Ranking on a single most-recent reading made the list flicker between 8 and 15 patients every few seconds, because one reading is not a patient's condition. Bradycardia is deliberately not ranked here: it tracks resting baseline, so a patient who normally sits at 60 bpm logs hundreds of crossings without deteriorating. A real system would alert on change from that patient's own baseline rather than a fixed threshold.",
       "gridPos": {
         "h": 10,
-        "w": 10,
-        "x": 0,
+        "w": 9,
+        "x": 7,
         "y": 16
       },
       "datasource": {
@@ -696,8 +768,8 @@
       "description": "Every patient. How the whole population is distributed over time \u2014 not the selected patient.",
       "gridPos": {
         "h": 10,
-        "w": 14,
-        "x": 10,
+        "w": 8,
+        "x": 16,
         "y": 16
       },
       "datasource": {
