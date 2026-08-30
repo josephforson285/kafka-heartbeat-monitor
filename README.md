@@ -234,6 +234,28 @@ filtered exactly one of eight panels, so selecting a patient changed almost noth
 on screen while appearing to. Now every panel is either scoped to the selected
 patient and titled with their id, or explicitly labelled as fleet-wide.
 
+### An alert calibrated against nothing fires against everything
+
+The alert first asked whether any patient had a critical reading in the last five
+minutes, with a threshold of *greater than zero*. The answer was 45 of 50 patients,
+so it fired permanently. That is the same mistake as counting patients on the fleet
+tile — anomalies here are spread evenly, so any presence test is always true — and a
+permanently firing alert is not an alert, it is background noise nobody reads.
+
+It is now calibrated against the measured baseline. Twenty minutes of normal traffic
+runs at 36.6 critical readings a minute, standard deviation 14.9, peak 54. The
+threshold is 120 a minute sustained for two minutes — roughly five standard
+deviations out — so ordinary variation is silent.
+
+Both halves were verified rather than assumed. Under normal load it stayed inactive
+for six minutes with the rate moving between 39 and 57. Sustaining an injected surge
+walked it `inactive → pending → firing` at about 490 a minute.
+
+It is a fleet-level surge detector, not a clinical alarm. Alerting on an individual
+patient needs a baseline for that patient, for the same reason the dashboard stopped
+ranking bradycardia: a fixed threshold cannot tell someone who is deteriorating from
+someone who simply runs low.
+
 ### Absence of data is the failure nothing else catches
 
 `Patients monitored` counts who is reporting. When the producer was killed it kept

@@ -7,40 +7,55 @@ groups:
     interval: 1m
     rules:
       - uid: critical-heart-rate
-        title: Patient in critical heart rate range
-        # counts patients, not readings: one person sustained above the critical
-        # threshold matters more than a burst of readings from the same sensor
+        title: Critical heart rate readings above baseline
+        # Calibrated against the observed baseline rather than set to "greater than
+        # zero". The first version asked whether any patient had a critical reading
+        # in five minutes; the answer was 45 of 50 and it fired permanently. An
+        # alert that never goes quiet is not read.
+        #
+        # Baseline measured over 20 minutes: 36.6 critical readings per minute,
+        # standard deviation 14.9, peak 54. The threshold is 120 per minute — about
+        # five standard deviations above the mean — so ordinary variation is silent
+        # and a genuine surge is not.
+        #
+        # This is a fleet-level surge detector, not a clinical alarm. Alerting on an
+        # individual patient needs a baseline per patient, for the same reason the
+        # dashboard does not rank bradycardia: a fixed threshold cannot separate a
+        # patient who is deteriorating from one who simply runs low.
         condition: threshold
-        for: 1m
-        noDataState: OK
+        for: 2m
+        noDataState: NoData
         execErrState: Error
         labels:
           severity: critical
         annotations:
-          summary: At least one patient has been above the critical heart rate threshold in the last 5 minutes
+          summary: Critical heart rate readings are running far above the normal rate
+          description: >-
+            More than 120 readings above the critical threshold in a single minute,
+            sustained for two minutes. Baseline is about 37 a minute.
         data:
-          - refId: patients
+          - refId: rate
             relativeTimeRange:
               from: 600
               to: 0
             datasourceUid: heartbeat-pg
             model:
-              refId: patients
+              refId: rate
               format: table
               editorMode: code
               rawQuery: true
               rawSql: |
-                SELECT count(DISTINCT customer_id) AS value
+                SELECT count(*) AS value
                 FROM heartbeat_readings
-                WHERE event_time > now() - interval '5 minutes'
+                WHERE event_time > now() - interval '1 minute'
                   AND hr_class = 'critical'
           - refId: threshold
             datasourceUid: __expr__
             model:
               refId: threshold
               type: threshold
-              expression: patients
+              expression: rate
               conditions:
                 - evaluator:
                     type: gt
-                    params: [0]
+                    params: [120]
