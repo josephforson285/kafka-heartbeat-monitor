@@ -234,6 +234,21 @@ filtered exactly one of eight panels, so selecting a patient changed almost noth
 on screen while appearing to. Now every panel is either scoped to the selected
 patient and titled with their id, or explicitly labelled as fleet-wide.
 
+### Absence of data is the failure nothing else catches
+
+`Patients monitored` counts who is reporting. When the producer was killed it kept
+reading **50** — those patients are still inside the time window — while the newest
+reading aged silently and every panel carried on showing the last good data. A dead
+sensor looked exactly like a healthy patient.
+
+`Patients gone silent` counts patients that reported earlier in the window but have
+sent nothing for sixty seconds. Killing the producer walks it from 0 to 50 once that
+threshold passes, which is the only signal on the dashboard that data has stopped
+arriving at all.
+
+For a monitor this is the failure that matters most, because it is the one that
+looks like good news.
+
 ### Ranking on one reading is not a patient's condition
 
 The attention list first showed each patient's *latest* reading. Sampled three

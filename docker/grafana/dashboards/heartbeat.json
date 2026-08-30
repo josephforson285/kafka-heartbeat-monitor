@@ -55,7 +55,7 @@
       "description": "Distinct patients that reported in the selected time range.",
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 1
       },
@@ -104,14 +104,72 @@
       ]
     },
     {
+      "id": 10,
+      "type": "stat",
+      "title": "Patients gone silent",
+      "description": "Patients that reported earlier in the window but have sent nothing for 60 seconds. Without this, a sensor or producer failing looks identical to a healthy patient: the readings simply stop and every other panel keeps showing the last good data. For a monitor, absence of data is the failure that matters most, and nothing else on this dashboard detects it.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS value FROM ( SELECT customer_id FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1 HAVING max(event_time) < now() - interval '60 seconds') p"
+        }
+      ]
+    },
+    {
       "id": 2,
       "type": "stat",
       "title": "Critical readings",
       "description": "Readings above the critical threshold in this window. Counted as readings, not patients: this generator spreads anomalies evenly across the fleet, so a patient count would read 50 of 50 and tell you nothing. Real distress concentrates in a few people, and there a patient count would be the right measure.",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 5,
+        "x": 8,
         "y": 1
       },
       "datasource": {
@@ -173,8 +231,8 @@
       "description": "Producer clock to durable row. How far behind reality the dashboard is.",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 12,
+        "w": 5,
+        "x": 13,
         "y": 1
       },
       "datasource": {
