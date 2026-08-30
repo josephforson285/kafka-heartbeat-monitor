@@ -51,8 +51,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Patients monitored",
-      "description": "Distinct patients that reported in the selected time range.",
+      "title": "Patients reporting",
+      "description": "Patients that have sent a reading in the last 60 seconds \u2014 who is being monitored right now. It used to count anyone seen anywhere in the time range, so a dead producer read 50 for a full window before decaying. Paired with 'Patients gone silent' it now tells one story: reporting falls as silent rises.",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -66,16 +66,23 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "mode": "thresholds"
           },
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 45
               }
             ]
           }
@@ -99,7 +106,7 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT customer_id) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time)"
+          "rawSql": "SELECT count(DISTINCT customer_id) AS value FROM heartbeat_readings WHERE event_time > now() - interval '60 seconds'"
         }
       ]
     },
