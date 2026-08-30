@@ -36,22 +36,16 @@ The integration tests truncate their tables; Note.
 | U20 | Generator rates outside 0–1, or summing above 1 | `ConfigError` | Pass |
 | U21 | Zero customers, zero rate, zero batch size or timeout | `ConfigError` | Pass |
 
-**U14** is schema evolution: an added field must not break a consumer that has not
-been updated. **U18** guards a real coupling — `HeartRateClass` and the
-`hr_class_known` constraint are two independent lists of the same four values, and a
-class added to one but not the other would fail at insert time in production instead
-of here.
+**U14** is to help with schema evolution.
 
 ## Integration tests
 
-The schema these run against — two tables, seven indexes, and the constraints the
-integration tests assert:
+The schema these run against.
 
 ![schema](screenshots/05-database-schema.png)
 
 Against a real PostgreSQL, because the deduplication guarantee is enforced by the
-schema rather than by application code, and a mock would agree with whatever the code
-claims.
+schema rather than by application code.
 
 | # | Case | Expected | Result |
 |---|---|---|---|
@@ -67,10 +61,7 @@ claims.
 | I10 | Writing again after a failed batch | Succeeds — the connection is still usable | Pass |
 | I11 | `ingested_at` | Stamped by the database, at or after `event_time` | Pass |
 
-**I9** justifies the transaction: without it a batch could land half written while the
-committed offset claimed all of it was stored — the gap that makes at-least-once
-unsafe. **I7 and I8** are defence in depth, asserting a future consumer that skipped
-validation would still be stopped.
+**I9** justifies the transaction.
 
 ## End-to-end tests
 

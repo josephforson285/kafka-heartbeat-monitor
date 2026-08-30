@@ -3,14 +3,14 @@
 [![CI](https://github.com/josephforson285/kafka-heartbeat-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/josephforson285/kafka-heartbeat-monitor/actions/workflows/ci.yml)
 
 Simulated heart rate sensors → **Apache Kafka** → validation → **PostgreSQL** →
-**Grafana**, with the delivery guarantees proven rather than claimed.
+**Grafana**, in real time.
 
 ![dashboard](docs/screenshots/01-dashboard-overview.png)
 
-- **50 patients**, ~50 readings a second, three Kafka brokers with replication factor 3
-- **Exactly-once storage** — a replayed message is absorbed by the primary key, verified across crashes, broker failures and database outages
-- **Bad data is kept, not dropped** — every rejection recorded with its reason, partition and offset
-- **Failure modes proven on every push** — CI stands the whole stack up and kills things
+* **50 patients**, ~50 readings/sec
+* **3 Kafka brokers**, replication factor 3
+* **Exactly-once storage** through `event_id` deduplication
+* Rejected data is stored with its reason, partition and offset
 
 ---
 
@@ -29,6 +29,9 @@ flowchart LR
     R --> GF["Grafana"]
     X --> GF
 ```
+
+
+
 
 ## Quick start
 
@@ -50,8 +53,7 @@ Then in two terminals:
 .venv/bin/heartbeat consume      # write them into PostgreSQL
 ```
 
-Grafana is at <http://localhost:3000> — the dashboard is already there, nothing to
-import. The database schema applies itself when PostgreSQL first starts.
+Grafana: http://localhost:3000
 
 | Service | Port |
 |---|---|
@@ -69,34 +71,33 @@ heartbeat produce [--count N] [--duration S] [--rate R]
 heartbeat consume [--group ID] [--max-messages N] [--drain]
 ```
 
-Every stage is re-runnable; running any twice is a no-op the second time.
-`make help` lists shortcuts for the longer incantations — `make up`, `test-all`,
-`proofs`, `lag`, `psql`, `reset`.
+
+Run `make help` for shortcuts.
 
 ## What it proves
 
-**Exactly-once storage.** These two numbers are equal after every crash, broker kill,
-database outage and deliberate replay this system has been through:
+### Exactly-once storage
+
+Replayed messages do not create duplicate database rows.
 
 ![exactly once](docs/screenshots/06-exactly-once.png)
 
-**Four failure modes, re-run by CI on every push** — `make proofs`:
+### Failure handling
 
-| Proof | What is killed | Result |
-|---|---|---|
-| 1 | The consumer, `SIGKILL`, mid-stream | nothing lost, nothing duplicated |
-| 2 | Nothing — a second consumer joins | partitions redistribute automatically |
-| 3 | Nothing — 5 malformed payloads injected | each rejected by name, pipeline survives |
-| 4 | A broker, with data flowing | leadership moves, ingestion never stops |
+`make proofs` verifies:
 
-Also verified: PostgreSQL dying mid-consume, all three brokers going down, both
-producer shutdown paths, and five kinds of contract change. Full matrix in
-[docs/failure_modes.md](docs/failure_modes.md).
+| Proof                          | Result                                   |
+| ------------------------------ | ---------------------------------------- |
+| Consumer killed mid-stream     | no lost or duplicate stored readings     |
+| Second consumer joins          | partitions rebalance automatically       |
+| Malformed payloads injected    | rejected without stopping the pipeline   |
+| Broker killed during ingestion | leadership moves and ingestion continues |
 
-**Performance** — p50 **134 ms**, p95 **248 ms** end to end; the consumer sustains
-**9,753 msg/s**, about 50× this workload. [docs/performance_metrics.md](docs/performance_metrics.md).
+Also tested: PostgreSQL outages, all brokers going down, producer shutdowns and contract changes.
 
-**Tests** — 72 automated tests, plus 38 end-to-end cases run by the demo script.
+See [docs/failure_modes.md](docs/failure_modes.md).
+
+**Tests** see.
 [docs/test_cases.md](docs/test_cases.md).
 
 ```bash
@@ -105,72 +106,38 @@ make test-all                 # + 11 integration
 make proofs                   # the four failure-mode proofs (resets the stack)
 ```
 
-## Design decisions, briefly
+## Design decisions
+ 
 
-Full reasoning for all twenty in [docs/design_decisions.md](docs/design_decisions.md).
-The five that matter most:
+More in [docs/design_decisions.md](docs/design_decisions.md).
 
-**The message carries an `event_id` the brief does not mention.** Without it there is
-no way to tell a redelivery from a new reading. It is the primary key, inserts use
-`ON CONFLICT DO NOTHING`, and at-least-once delivery becomes exactly-once *storage*.
-That — not Kafka transactions — is the answer to "how do you get exactly-once?"
 
-**Offsets are committed after the write, never before.** Readings and rejects go in
-one transaction; only then do offsets move. A crash in between replays the batch
-rather than losing it, and the primary key absorbs the replay.
+**`event_id` enables exactly-once storage.**
+It identifies retries, while `ON CONFLICT DO NOTHING` prevents duplicate inserts.
 
-**Invalid and alerting are different things.** 190 bpm is real data about a patient in
-trouble — stored and flagged. 900 bpm is a broken sensor — rejected with its reason.
-Dropping the first would discard the event the system exists to catch.
+**Offsets move after database writes.**
+A crash may replay messages, but committed data is not lost and duplicates are ignored.
 
-**Three brokers, so replication is real.** RF=3 is impossible on one broker, and
-`acks=all` on a single broker means nothing. With `min.insync.replicas=2` a write
-needs two copies and one broker can die without stopping ingestion.
+**Alerts and invalid data are different.**
+A plausible 190 bpm reading is stored and flagged; an impossible 900 bpm reading is rejected.
 
-**The classifications are ranges, not diagnoses.** `bradycardia` and `critical` name
-fixed bands applied to one reading. Nothing accounts for age, activity, medication or
-a patient's own baseline — a limit of a contract carrying only id, time and rate.
+**Three brokers provide real replication.**
+RF=3 with `min.insync.replicas=2` allows one broker to fail without stopping ingestion.
+
+**Classifications are ranges.**
+Labels such as `bradycardia` and `critical` are fixed thresholds, not medical diagnoses.
+
+
 
 ## Documentation
 
-| Document | Covers |
-|---|---|
-| [design_decisions.md](docs/design_decisions.md) | why each choice was made, and what it cost |
-| [failure_modes.md](docs/failure_modes.md) | what breaks it, what survives, what is lost |
-| [test_cases.md](docs/test_cases.md) | all 70 cases with results |
-| [performance_metrics.md](docs/performance_metrics.md) | latency, throughput, indexes |
-| [architecture.svg](docs/architecture.svg) | data flow diagram |
-| [screenshots/](docs/screenshots/) | the running system |
-| [sample_output/](docs/sample_output/) | logs from a real proof run |
+| Document                                              | Covers                 |
+| ----------------------------------------------------- | ---------------------- |
+| [design_decisions.md](docs/design_decisions.md)       | architecture choices   |
+| [failure_modes.md](docs/failure_modes.md)             | failure behaviour      |
+| [test_cases.md](docs/test_cases.md)                   | test results           |
+| [performance_metrics.md](docs/performance_metrics.md) | latency and throughput |
+| [architecture.svg](docs/architecture.svg)             | system architecture    |
+| [screenshots/](docs/screenshots/)                     | running system         |
+| [sample_output/](docs/sample_output/)                 | proof-run logs         |
 
-## Layout
-
-```
-config/config.yaml            parameters (secrets live in .env)
-sql/001_schema.sql            tables, constraints, indexes
-src/heartbeat/
-  schema.py                   the event contract, shape and parsing only
-  validation.py               plausibility and classification
-  generator.py                synthetic readings
-  producer.py                 Kafka producer and its run loop
-  consumer.py                 poll, validate, write, then commit
-  db.py                       transactional batch upsert
-  config.py                   typed config loading and validation
-  logging_conf.py             logging setup
-  runtime.py                  cooperative shutdown
-  cli.py                      the single entrypoint
-docker/grafana/               provisioned datasource, dashboard, alert
-scripts/demo_failure_modes.sh the proofs
-tests/                        unit and integration tests
-```
-
-## What would change in production
-
-Replication is already what production would run. What is missing is everything
-around it:
-
-- **The brokers share a machine** — proof 4 kills a broker *process*, not the host under all three
-- **No TLS or SASL** — every listener is plaintext and unauthenticated
-- **No Schema Registry** — a shared module suffices while one team owns both ends of the topic
-- **`heartbeat_readings` is a single table** — at volume it wants time partitioning and retention
-- **Broker metrics come off the CLI** — production exports JMX to Prometheus and alerts on under-replicated partitions

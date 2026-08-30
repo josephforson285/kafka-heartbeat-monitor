@@ -1,13 +1,14 @@
 # Failure modes
 
-What breaks it, what survives, and what is lost. Every figure here came from running
-the thing, not from reasoning about it.
+What breaks it, what survives, and what is lost. Every result here came from running
+the thing.
 
-`scripts/demo_failure_modes.sh` proves three of them and asserts the results rather
-than describing them. It resets the stack, so run it deliberately.
+`scripts/demo_failure_modes.sh` reproduces and asserts the tests.
 
-**A consumer killed mid-stream loses nothing and duplicates nothing.** The consumer
-is `SIGKILL`ed while the producer is still running, then restarted:
+
+### Consumer killed mid-stream
+
+A consumer is `SIGKILL`ed while the producer is still running, then restarted.
 
 ```
 killed with SIGKILL after 677 of 2000 rows were written
@@ -16,14 +17,18 @@ PASS  no records lost (2000)
 PASS  no records duplicated (1965)
 ```
 
-**A second consumer joining the group triggers a rebalance.**
+### Consumer-group rebalance
+
+When a second consumer joins, Kafka redistributes the partitions automatically.
 
 ```
 A: assigned [0,1,2] → revoked [0,1,2] → assigned [0,1]
 B: assigned [2]
 ```
 
-**Malformed messages are recorded and skipped.** Five deliberately broken payloads:
+### Malformed messages
+
+Invalid messages are rejected without stopping the pipeline.
 
 ```
 not valid JSON: Expecting value: line 1 column 1 (char 0)
@@ -33,8 +38,9 @@ missing field(s): event_id, event_time, heart_rate
 not valid JSON  (invalid UTF-8)
 ```
 
-**A broker can die mid-stream without stopping ingestion.** `kafka2` is stopped while
-the producer and consumer are running:
+### Broker failure
+
+`kafka2` is stopped while data is still flowing.
 
 ```
 before      partition 2   leader 2   replicas [1,2,3]   isr [1,2,3]
@@ -47,18 +53,13 @@ PASS  in-sync replicas recovered (0)
 PASS  still no duplicates (19623)
 ```
 
-Leadership moved off the dead broker on its own and the pipeline kept writing —
-`min.insync.replicas: 2` was still satisfied by the two survivors. Note that
-leadership stays on broker 3 after recovery; Kafka does not move it back
-automatically.
+Leadership moves to another broker and ingestion continues while the failed replica recovers.
 
-### What survives a sudden shutdown
+## Sudden shutdowns
 
-The committed offset is the boundary. Everything up to it is durable in PostgreSQL;
-everything after it is replayed and absorbed by the primary key. Each component was
-killed on purpose to check:
+The committed Kafka offset is the recovery boundary. Data already committed to PostgreSQL is durable; anything after the offset is replayed.
 
-| What dies | What is lost | What happens on resume |
+| Failure | What is lost | What happens on resume |
 |---|---|---|
 | Consumer, `SIGTERM` | nothing — the batch in hand finishes and commits | resumes at the committed offset, replays nothing |
 | Consumer, `SIGKILL` | nothing durable — the uncommitted batch is still on the topic | replays that batch, `ON CONFLICT` absorbs it |
@@ -68,50 +69,13 @@ killed on purpose to check:
 | Producer, `SIGTERM` | nothing — `close()` flushes what is buffered | starts fresh; there is nothing to replay |
 | Producer, `SIGKILL` | whatever sat in the local buffer, **with no record of it** | starts fresh; the gap is permanent |
 
-The consumer side is safe because the order is fixed: write the rows, commit the
-offsets. Interrupt it anywhere and the worst case is that a batch is processed twice,
-which the primary key makes free.
+The consumer is safe because the order is fixed:
 
-**The producer is the exception, and it is worth being straight about.** `produce()`
-buffers locally and delivery is confirmed later on a callback, so a `SIGKILL` takes
-the buffer with it — measured at roughly 51 readings out of 1,200 at 300/s, and the
-process dies before it can report a single one. There is no replay, because a heart
-rate sensor has no log to replay from. `acks=all` and `enable.idempotence` protect a
-message once Kafka has been asked to store it; they cannot protect one that never
-left the producer.
+**write rows → commit offsets**
 
-A real deployment closes that gap on the device: the sensor buffers to its own
-storage and retries. Nothing on the Kafka side can do it for you.
+If interrupted between those steps, Kafka replays the batch and the primary key absorbs duplicates.
 
-The figures above are from the run whose logs are committed in
-[sample_output/](sample_output/); re-running the script regenerates both
-together. Screenshots of the running system are in
-[screenshots/](screenshots/), kept separate because the demo script
-overwrites everything in `sample_output/`. Alongside the logs is
-[database-contents.txt](sample_output/database-contents.txt) — the table
-definition, the classification breakdown, recent rows with the partition and offset
-they came from, and the count that matters:
-
-```
- total_readings | distinct_event_ids
-----------------+--------------------
-           5890 |               5890
-```
-
-**The database going away is survivable too.** Stopping PostgreSQL mid-consume leaves
-the group cleanly and exits 3 with one readable line; restarting it and re-running
-`consume --drain` picks up the uncommitted batch with `duplicates=0`.
-
-Consumer lag, at any time. Note the internal listener: run inside a broker container,
-the external addresses advertise `localhost:909x`, which from in there resolves only
-to that same container, so any call needing a second broker times out.
-
-```bash
-docker compose exec kafka1 /opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server kafka1:19092 --describe --group heartbeat-writer
-```
-
-## Evidence
+## Evidence on rejections
 
 Rejections carry the reason and the exact log position they came from — nothing is
 silently dropped:

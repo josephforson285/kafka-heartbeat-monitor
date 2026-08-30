@@ -15,12 +15,6 @@
   <text x="105" y="157" font-size="11" fill="#64748b" text-anchor="middle">50 customers</text>
   <text x="105" y="170" font-size="11" fill="#64748b" text-anchor="middle">random walk + faults</text>
 
-  <!-- producer -->
-  <rect x="220" y="110" width="150" height="66" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
-  <text x="295" y="134" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">Producer</text>
-  <text x="295" y="152" font-size="11" fill="#64748b" text-anchor="middle">acks=all, idempotent</text>
-  <text x="295" y="167" font-size="11" fill="#64748b" text-anchor="middle">key = customer_id</text>
-
   <!-- kafka topic -->
   <rect x="404" y="76" width="216" height="148" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
   <text x="512" y="97" font-size="13" font-weight="600" fill="#92400e" text-anchor="middle">heartbeat.raw</text>
@@ -64,6 +58,12 @@
 
   <!-- arrows -->
   <line x1="180" y1="143" x2="398" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- producer — drawn after the arrow so it covers the line crossing it -->
+  <rect x="220" y="110" width="150" height="66" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="295" y="134" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">Producer</text>
+  <text x="295" y="152" font-size="11" fill="#64748b" text-anchor="middle">acks=all, idempotent</text>
+  <text x="295" y="167" font-size="11" fill="#64748b" text-anchor="middle">key = customer_id</text>
   <line x1="620" y1="143" x2="654" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
   <line x1="830" y1="143" x2="884" y2="143" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
   <line x1="745" y1="186" x2="745" y2="250" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
