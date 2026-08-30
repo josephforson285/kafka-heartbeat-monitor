@@ -106,8 +106,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Patients needing attention",
-      "description": "Patients whose most recent reading is outside the normal band. Counts people, not readings.",
+      "title": "Critical readings",
+      "description": "Readings above the critical threshold in this window. Counted as readings, not patients: this generator spreads anomalies evenly across the fleet, so a patient count would read 50 of 50 and tell you nothing. Real distress concentrates in a few people, and there a patient count would be the right measure.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -162,7 +162,7 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS value FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal'"
+          "rawSql": "SELECT count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND hr_class = 'critical'"
         }
       ]
     },
@@ -531,8 +531,8 @@
     {
       "id": 5,
       "type": "table",
-      "title": "Patients needing attention \u2014 most severe first",
-      "description": "Each patient's latest reading, abnormal ones only, ordered critical \u2192 tachycardia \u2192 bradycardia and then by distance from normal.",
+      "title": "Patients ranked by episodes in this window",
+      "description": "Counts over the whole window, not the latest reading. Ranking on a single most-recent reading made the list flicker between 8 and 15 patients every few seconds, because one reading is not a patient's condition. Bradycardia is deliberately not ranked here: it tracks resting baseline, so a patient who normally sits at 60 bpm logs hundreds of crossings without deteriorating. A real system would alert on change from that patient's own baseline rather than a fixed threshold.",
       "gridPos": {
         "h": 10,
         "w": 10,
@@ -553,39 +553,34 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "hr_class"
+              "options": "critical"
             },
             "properties": [
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "critical": {
-                        "color": "red",
-                        "index": 0,
-                        "text": "CRITICAL"
-                      },
-                      "tachycardia": {
-                        "color": "orange",
-                        "index": 1,
-                        "text": "tachycardia"
-                      },
-                      "bradycardia": {
-                        "color": "blue",
-                        "index": 2,
-                        "text": "bradycardia"
-                      }
-                    }
-                  }
-                ]
-              },
               {
                 "id": "custom.cellOptions",
                 "value": {
                   "type": "color-background",
-                  "mode": "basic"
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
                 }
               }
             ]
@@ -593,7 +588,19 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "heart_rate"
+              "options": "peak"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bpm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lowest"
             },
             "properties": [
               {
@@ -613,7 +620,7 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id AS patient, heart_rate, hr_class, event_time AS last_reading FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal' ORDER BY CASE hr_class WHEN 'critical' THEN 1 WHEN 'tachycardia' THEN 2 WHEN 'bradycardia' THEN 3 ELSE 4 END, abs(heart_rate - 80) DESC"
+          "rawSql": "SELECT customer_id AS patient, count(*) FILTER (WHERE hr_class='critical') AS critical, count(*) FILTER (WHERE hr_class='tachycardia') AS tachycardia, max(heart_rate) AS peak, min(heart_rate) AS lowest, max(event_time) FILTER (WHERE hr_class IN ('critical','tachycardia')) AS last_episode FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1 HAVING count(*) FILTER (WHERE hr_class IN ('critical','tachycardia')) > 0 ORDER BY critical DESC, tachycardia DESC, peak DESC"
         }
       ]
     },

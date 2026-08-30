@@ -225,15 +225,39 @@ under time pressure:
 2. **Selected patient** — their actual readings in order, plus highest, lowest,
    average, count and abnormal count for the window. This sits directly under the
    fleet summary because it is what someone opens the dashboard to look at.
-3. **Who needs attention** — every patient currently outside the normal band,
-   ordered critical → tachycardia → bradycardia and then by distance from normal.
-   Sorted by time, a patient at 235 sat below a queue of resting adults at 56.
+3. **Who needs attention** — patients ranked by how many critical and tachycardia
+   episodes they logged across the window, with their peak and lowest reading.
 4. **Pipeline health** — classification mix and every rejection with its offset.
 
 The patient selector is single-select on purpose. Earlier it defaulted to *All* and
 filtered exactly one of eight panels, so selecting a patient changed almost nothing
 on screen while appearing to. Now every panel is either scoped to the selected
 patient and titled with their id, or explicitly labelled as fleet-wide.
+
+### Ranking on one reading is not a patient's condition
+
+The attention list first showed each patient's *latest* reading. Sampled three
+times over eight seconds it returned 15, then 12, then 8 patients, and the set of
+critical ones changed completely each time. Patients appeared to enter and leave
+crisis every refresh, because a single reading is a coin flip, not a condition.
+
+It now counts episodes across the whole window. The same patients hold the top,
+their counts drifting by one as the window slides — which is a sliding window
+behaving correctly rather than noise.
+
+Two measurement decisions came out of looking at the data rather than assuming:
+
+**Bradycardia is not ranked.** It tracks resting baseline. A patient who normally
+sits at 60 bpm logged 253 crossings in five minutes while one at 78 logged two —
+that is a characteristic, not deterioration. A fixed threshold cannot tell them
+apart; a real system would alert on change from each patient's own baseline, which
+needs per-patient baselines this project does not build.
+
+**The fleet tile counts readings, not patients.** All 50 patients logged a critical
+or tachycardia reading in five minutes, so a patient count reads 50 of 50 and says
+nothing. That is an artefact of the generator spreading anomalies evenly; real
+distress concentrates in a few people, and there the patient count would be the
+right measure. The tile says which it is counting.
 
 ### The patient chart plots readings, not an aggregate
 
