@@ -123,6 +123,26 @@ Contract violations — malformed JSON, missing fields, a non-UUID `event_id`, a
 timestamp with no offset — take the same path as sensor faults. Nothing is silently
 discarded; every rejection is queryable with the partition and offset it came from.
 
+### The classifications are ranges, not diagnoses
+
+`bradycardia`, `tachycardia` and `critical` name fixed bands — below 60, above 100,
+above 180 — applied to a single reading. They are not clinical findings, and the
+system does not diagnose.
+
+Nothing here accounts for **age**, and maximum heart rate is roughly 220 minus it, so
+185 bpm is unremarkable in someone of 25 exercising and an emergency in someone of 80
+at rest. Nor for **activity**, **medication**, or a patient's **own baseline** — a
+trained athlete resting at 48 and a patient on beta blockers at 55 are both normal
+and both land in `bradycardia` here. The thresholds are resting adult values, and
+`critical` is this project's label rather than a clinical term.
+
+That is a limitation of the data available, not an oversight: the message contract
+carries `customer_id`, `event_time` and `heart_rate`, and nothing else to reason
+with. A system making clinical claims would need each patient's own baseline, which
+is the same conclusion the dashboard reaches when it declines to rank bradycardia
+and the alert reaches when it detects a fleet-level surge rather than an individual
+in distress.
+
 ### What a change to the message contract costs
 
 Each kind of change was pushed through the running pipeline to see what it actually
