@@ -52,7 +52,7 @@
       "id": 1,
       "type": "stat",
       "title": "Patients reporting",
-      "description": "Patients that have sent a reading in the last 60 seconds \u2014 who is being monitored right now. It used to count anyone seen anywhere in the time range, so a dead producer read 50 for a full window before decaying. Paired with 'Patients gone silent' it now tells one story: reporting falls as silent rises.",
+      "description": "Patients that have sent a reading in the last 60 seconds.",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -114,7 +114,7 @@
       "id": 10,
       "type": "stat",
       "title": "Patients gone silent",
-      "description": "Patients that reported earlier in the window but have sent nothing for 60 seconds. Without this, a sensor or producer failing looks identical to a healthy patient: the readings simply stop and every other panel keeps showing the last good data. For a monitor, absence of data is the failure that matters most, and nothing else on this dashboard detects it. Normal gaps between a patient's readings are 1.5s on average and 5.4s at the 99th percentile, so 60s is roughly eleven times the worst ordinary pause. How many go silent tells you what broke: one or two is that patient's device or link, all fifty at once is the producer, Kafka or the consumer, because fifty devices do not fail in the same second.",
+      "description": "Patients that reported earlier but have sent nothing for 60 seconds. One or two points at that device; all of them points at the pipeline.",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -172,7 +172,7 @@
       "id": 2,
       "type": "stat",
       "title": "Critical readings / min",
-      "description": "Rate over the last minute, deliberately not a count over the dashboard's time range: a count triples when you switch the picker from 5 minutes to 15 without anything having changed, so no fixed threshold can mean anything. The bands are the same calibration as the alert \u2014 baseline is 36.6 a minute with a deviation of 14.9, amber above two deviations, red at 120 where the alert fires. It read red permanently before this, while the alert sat quiet, and they cannot contradict each other now.",
+      "description": "Readings above 180 bpm in the last minute. Amber above 66, red at 120 where the alert fires. Baseline is about 37 a minute.",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -633,7 +633,7 @@
       "id": 11,
       "type": "table",
       "title": "Patients gone silent \u2014 longest first",
-      "description": "Which patients the 'gone silent' tile is counting, and how long each has been quiet. Without this the tile tells you a number you cannot act on: a silent patient appears in no other panel, because every other panel is built from readings they are not sending. Normal gaps between a patient's readings are 1.5s on average and 5.4s at the 99th percentile, so 60s is roughly eleven times the worst ordinary pause. How many go silent tells you what broke: one or two is that patient's device or link, all fifty at once is the producer, Kafka or the consumer, because fifty devices do not fail in the same second.",
+      "description": "Which patients the silence count refers to, and how long each has been quiet. Empty while the fleet is healthy.",
       "gridPos": {
         "h": 10,
         "w": 6,
@@ -705,7 +705,7 @@
       "id": 5,
       "type": "table",
       "title": "Patients ranked by episodes in this window",
-      "description": "Counts over the whole window, not the latest reading. Ranking on a single most-recent reading made the list flicker between 8 and 15 patients every few seconds, because one reading is not a patient's condition. Bradycardia is deliberately not ranked here: it tracks resting baseline, so a patient who normally sits at 60 bpm logs hundreds of crossings without deteriorating. A real system would alert on change from that patient's own baseline rather than a fixed threshold.",
+      "description": "Counts across the whole window, not the latest reading. Bradycardia is not ranked here because it tracks resting baseline rather than deterioration.",
       "gridPos": {
         "h": 10,
         "w": 11,
