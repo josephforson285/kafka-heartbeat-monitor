@@ -111,6 +111,8 @@ validation would still be stopped.
 | E14 | Consumer lag is observable | `kafka-consumer-groups.sh --describe` | Per-partition lag reported | Pass |
 | E15 | Grafana is provisioned | `docker compose up -d` on a clean volume | Datasource connects, dashboard and alert rule present | Pass |
 | E16 | Alert fires on a real condition | Ingest readings above the critical threshold | Rule goes `pending` then `firing` with value 1 | Pass |
+| E16a | Chart surfaces a spike | Query the panel for a customer with a 250 bpm reading | `peak` series reaches 250; the old `avg` version drew 78 | Pass |
+| E16b | Chart surfaces a dip | Same customer, `low` series | Reaches 21 bpm, crossing the bradycardia band | Pass |
 | E17 | Topics are replicated | `heartbeat topic-info` | Every partition `replicas [1,2,3] isr [1,2,3]` | Pass |
 | E18 | A topic that exists but does not match config | Recreate the DLQ at RF=1, run `create-topics` | Refused with the mismatch named, exit 1 | Pass |
 | E19 | A broker dies mid-stream | `docker compose stop kafka2` while producing | Row count keeps climbing while the broker is down; exact figures in `proof4-*` | Pass |

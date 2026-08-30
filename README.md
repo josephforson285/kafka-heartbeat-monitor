@@ -214,6 +214,27 @@ were ever written.
 never mean data loss. The topic exists so a fixed consumer can replay poison messages
 without re-reading the whole log.
 
+### The chart plots the range, not the average
+
+The heart rate panel draws the highest and lowest reading in each interval. It
+started as an average, which was wrong in a way worth explaining, because the
+dashboard looked perfectly healthy while it was happening.
+
+Readings arrive faster than the chart has pixels, so every point covers an interval
+holding many readings. Averaged, one minute of this data plots **73 bpm** — while
+the readings inside it span **20 to 250**. A patient at 250 was drawn as normal, on
+the same screen as a table listing them as critical.
+
+Taking the maximum instead would have fixed tachycardia and broken bradycardia: a
+bucket of 31, 72, 75, 80 plots 80, and the patient at 31 disappears. This system
+alerts on both ends, so the chart has to show both. Two series per customer, `peak`
+and `low`, and the threshold bands at 60, 100 and 180 now get crossed rather than
+hovered under.
+
+The general point: an aggregate chosen for a dashboard is a claim about which
+information you are willing to lose. For vitals, the average is the one value you
+can afford least.
+
 ### Grafana is provisioned from files
 
 The datasource, dashboard and alert rule are YAML and JSON in `docker/grafana/`,

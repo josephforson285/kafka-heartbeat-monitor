@@ -237,7 +237,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Heart rate by customer",
+      "title": "Heart rate range by customer",
       "gridPos": {
         "h": 10,
         "w": 16,
@@ -256,12 +256,13 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": true,
             "thresholdsStyle": {
               "mode": "dashed"
-            }
+            },
+            "gradientMode": "scheme"
           },
           "thresholds": {
             "mode": "absolute",
@@ -283,6 +284,9 @@
                 "value": 180
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -304,9 +308,17 @@
           "format": "time_series",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), customer_id AS metric, avg(heart_rate) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id IN ($customer) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), customer_id || ' peak' AS metric, max(heart_rate) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id IN ($customer) GROUP BY 1, 2 ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), customer_id || ' low' AS metric, min(heart_rate) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id IN ($customer) GROUP BY 1, 2 ORDER BY 1"
         }
-      ]
+      ],
+      "description": "Highest and lowest reading in each interval, not the average. Averaging hides both ends: in one minute of this data the readings span 20 to 250 bpm while the mean sits at 73, so a patient at 250 would be drawn as normal."
     },
     {
       "id": 6,
