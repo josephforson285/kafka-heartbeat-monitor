@@ -1,33 +1,20 @@
 # Test plan
 
-Three layers. Unit tests cover the pure logic with no infrastructure; integration
-tests cover the guarantees that live in the DDL rather than in Python; the demo
-script covers what only appears with a real broker and a real crash.
+Three layers: unit tests for the pure logic, integration tests for the guarantees
+that live in the DDL rather than in Python, and the demo script for what only appears
+with a real broker and a real crash. CI runs all three on every push and attaches the
+logs, so the end-to-end results below are re-proven per commit rather than recorded
+once.
 
 ```bash
-.venv/bin/python -m pytest            # 61 unit tests
-./scripts/demo_failure_modes.sh       # end-to-end proofs (resets the stack)
+.venv/bin/python -m pytest         # 61 unit tests
+make test-all                      # + 11 integration tests
+./scripts/demo_failure_modes.sh    # end-to-end proofs (resets the stack)
 ```
 
-The 11 integration tests are skipped unless pointed at a disposable database, since
-they truncate their tables.
-
-CI runs all three layers on every push: the unit tests, the integration tests against
-a PostgreSQL service, and then the demo script against the repository's own
-`docker-compose.yml`. The end-to-end results below are therefore re-proven per commit,
-not recorded once — each run attaches its logs as a build artifact.
-
-```bash
-HEARTBEAT_TEST_DSN="host=localhost port=5434 dbname=heartbeat_test user=heartbeat password=..." \
-HEARTBEAT_ALLOW_DESTRUCTIVE_TESTS=1 .venv/bin/python -m pytest
-```
-
-The demo script's reset (`docker compose down -v`) drops this database along with
-everything else, so recreate it when you have just run the proofs:
-
-```bash
-docker compose exec postgres psql -U heartbeat -d postgres -c "CREATE DATABASE heartbeat_test;"
-```
+The integration tests truncate their tables, so they skip unless pointed at a
+disposable database — `make test-all` creates it. The demo script's reset drops it
+again along with everything else.
 
 ## Unit tests
 
@@ -55,19 +42,17 @@ docker compose exec postgres psql -U heartbeat -d postgres -c "CREATE DATABASE h
 | U20 | Generator rates outside 0–1, or summing above 1 | `ConfigError` | Pass |
 | U21 | Zero customers, zero rate, zero batch size or timeout | `ConfigError` | Pass |
 
-U14 is the schema evolution case: adding an optional field to the contract must not
-break a consumer that has not been updated.
-
-U18 guards a real coupling — `HeartRateClass` and the `hr_class_known` constraint in
-`sql/001_schema.sql` are two independent lists of the same four values, and a new
-class added to one and not the other would fail at insert time in production rather
-than in the test suite.
+**U14** is schema evolution: an added field must not break a consumer that has not
+been updated. **U18** guards a real coupling — `HeartRateClass` and the
+`hr_class_known` constraint are two independent lists of the same four values, and a
+class added to one but not the other would fail at insert time in production instead
+of here.
 
 ## Integration tests
 
-Against a real PostgreSQL. These exist because the deduplication guarantee is
-enforced by the schema, not by application code, and a mock would happily agree
-with whatever the code claims.
+Against a real PostgreSQL, because the deduplication guarantee is enforced by the
+schema rather than by application code, and a mock would agree with whatever the code
+claims.
 
 | # | Case | Expected | Result |
 |---|---|---|---|
@@ -83,12 +68,9 @@ with whatever the code claims.
 | I10 | Writing again after a failed batch | Succeeds — the connection is still usable | Pass |
 | I11 | `ingested_at` | Stamped by the database, at or after `event_time` | Pass |
 
-I9 is the one that justifies the transaction. Without it a batch could land half
-written while the committed offset claimed all of it had been stored — the exact
-gap that makes at-least-once delivery unsafe.
-
-I7 and I8 are defence in depth. The consumer already rejects those values before
-they reach the database; these assert that a future consumer which skipped
+**I9** justifies the transaction: without it a batch could land half written while the
+committed offset claimed all of it was stored — the gap that makes at-least-once
+unsafe. **I7 and I8** are defence in depth, asserting a future consumer that skipped
 validation would still be stopped.
 
 ## End-to-end tests
@@ -134,85 +116,55 @@ validation would still be stopped.
 | E35 | Field meaning changed | Structurally valid payload, different semantics | **Stored, undetected** — the known gap | Pass |
 | E36 | Kafka data survives a restart | 300 messages, `docker compose down` then `up` | Topics present, 300 messages still there, ISR complete | Pass |
 
-E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
-could just mean nothing was actually broken.
+**E10** is the one that matters, and it asserts two things separately: nothing lost
+(`stored + rejected` equals produced) and nothing duplicated (`count(DISTINCT
+event_id)` equals `count(*)`). Either can fail alone, for different reasons.
 
-E26 to E30 map the shutdown boundary from both ends. E30 is the contrast that makes
-E10 meaningful: killed gracefully the consumer replays nothing, killed outright it
-replays exactly the uncommitted batch. Same code, and the difference is only whether
-the commit had happened.
+**E30 is the contrast that gives E10 its meaning** — killed gracefully the consumer
+replays nothing, killed outright it replays exactly the uncommitted batch. Same code;
+the only difference is whether the commit had happened.
 
-E27 is the one honest gap. The producer buffers locally and the process dies before
-the delivery callbacks arrive, so those readings are lost and unrecorded. No Kafka
-setting fixes that; only the device buffering its own data would.
+**E19** is the claim, **E20 and E21** are why it held. Without them "ingestion
+continued" could just mean nothing was actually broken.
 
-E24 is worth its own note. The consumer leaves the group cleanly on the way out —
-partitions revoked, counts reported, one line saying what is unreachable — because
-the close happens in a `finally`. Before that guard it would have died holding its
-partitions, and the next consumer would have waited out `session.timeout.ms` for
-nothing. The batch in flight was never committed, so E25 replays it and the primary
-key absorbs it.
+**E24** works because the close happens in a `finally`. Before that guard the consumer
+died holding its partitions and the next one waited out `session.timeout.ms` for
+nothing. Its in-flight batch was never committed, so E25 replays it.
 
-E18 exists because of a defect this caught — see below.
+**E27 is the honest gap.** The producer buffers locally and dies before the delivery
+callbacks arrive, so those readings are lost and unrecorded. No Kafka setting fixes
+it; only the device buffering its own data would.
 
-E10 is the one that matters. It asserts two things separately — that
-`stored + rejected` equals what was produced (nothing lost) and that
-`count(DISTINCT event_id)` equals `count(*)` (nothing duplicated). Either could fail
-alone, and each has a different cause.
+## Two defects these tests found
 
-## A defect this plan found
+**E10 failed on its first honest run:** `expected 2000, got 664`. A `SIGKILL`ed
+consumer does not leave its group, so the broker holds its partitions until
+`session.timeout.ms` expires. The replacement polled empty throughout, and `--drain`
+read "no partitions assigned yet" as "topic is caught up" and exited — reporting
+success having left 1,336 records unprocessed. Fixed by making drain wait for an
+assignment first, and cutting `session.timeout.ms` from 45s to 10s.
 
-E10 failed on its first honest run: `expected 2000, got 664`. A consumer killed with
-`SIGKILL` does not leave its consumer group, so the broker holds its partitions until
-`session.timeout.ms` expires. The replacement consumer polled empty for that whole
-window, and `--drain` treated "no partitions assigned yet" as "topic is caught up"
-and exited, leaving 1336 records unprocessed while reporting success.
+The earlier version of that test could not have caught it: it killed the consumer
+after the backlog was already drained, so the recovery pass had nothing to do and
+passed for the wrong reason.
 
-Fixed by having drain wait until it actually holds an assignment before treating
-empty polls as a drained topic, and by lowering `session.timeout.ms` from 45 s to
-10 s so a dead member is detected quickly.
+**The first three-broker run reported `PASS ingestion continued through the broker
+failure`** — green — while `heartbeat.dlq` was quietly running at replication factor
+1. Two causes: `auto.create.topics.enable` defaults to on, so something touching the
+topic before `create-topics` had already made it at the broker defaults; and
+`create-topics` only checked that a topic *existed*, not that it matched the spec.
+Fixed by disabling auto-creation and having `create-topics` compare and refuse (E18).
 
-The earlier version of this test could not have caught it: it killed the consumer
-after the backlog had already been drained, so the recovery pass had nothing to do
-and passed for the wrong reason.
-
-## A second defect, found by adding replication
-
-The first three-broker run reported
-`PASS ingestion continued through the broker failure` — the
-important assertion, green — while `heartbeat.dlq` was quietly running at
-replication factor 1.
-
-Two causes. Kafka's `auto.create.topics.enable` defaults to on, so something touching
-the topic before `create-topics` ran had already created it at the broker defaults:
-one partition, no replication. And `create-topics` only checked whether a topic
-*existed*, not whether it matched the spec — so it reported "already exists" and moved
-on while config claimed RF=3.
-
-Fixed by disabling auto-creation, and by having `create-topics` compare partition
-count and replication factor against config and refuse to continue on a mismatch
-(E18). A green assertion on a system that is not doing what its configuration says is
-worse than a failing one.
+A green assertion on a system that is not doing what its configuration says is worse
+than a failing one.
 
 ## Not covered
 
-**Losing the host.** The three brokers are containers on one machine, so E19–E23
-prove a broker *process* can die, not that the hardware under all three can. Real
-clusters spread brokers across failure domains; nothing here tests that.
-
-**Losing two brokers at once.** With `min.insync.replicas: 2`, writes stop — by
-design, since one surviving copy is not the guarantee the config promises. That is
-correct behaviour rather than a failure, but it is asserted nowhere.
-
-**Losing PostgreSQL and Kafka at once.** E24 covers the database going away on its
-own. Both failing together is untested.
-
-**Semantic drift in the contract (E35).** A change to what a field means, with no
-change to its shape, is undetectable here. `schema_version` is carried but not
-stored, so affected rows cannot be isolated by version — only by `ingested_at` or
-offset range. The reasoning is in the README; the escape hatch is one column.
-
-**TLS and authentication.** Every listener is plaintext. Out of scope for this lab.
-
-**Grafana alert delivery.** E16 proves the rule evaluates and fires. Whether a
-notification reaches anyone is untested — no contact point is configured.
+| Gap | Why |
+|---|---|
+| Losing the host | Three brokers on one machine — E19–E23 prove a *process* can die, not the hardware under all three |
+| Losing two brokers at once | With `min.insync.replicas: 2` writes stop by design; correct, but asserted nowhere |
+| Losing PostgreSQL and Kafka together | E24 covers the database alone |
+| Semantic drift (E35) | `schema_version` is carried but not stored, so affected rows are isolable only by `ingested_at` or offset range. Escape hatch is one column |
+| TLS and authentication | Every listener is plaintext — out of scope for this lab |
+| Grafana alert delivery | E16 proves the rule fires; no contact point is configured, so nothing is notified |
