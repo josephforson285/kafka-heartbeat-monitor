@@ -636,7 +636,7 @@
       "description": "Which patients the 'gone silent' tile is counting, and how long each has been quiet. Without this the tile tells you a number you cannot act on: a silent patient appears in no other panel, because every other panel is built from readings they are not sending. Normal gaps between a patient's readings are 1.5s on average and 5.4s at the 99th percentile, so 60s is roughly eleven times the worst ordinary pause. How many go silent tells you what broke: one or two is that patient's device or link, all fifty at once is the producer, Kafka or the consumer, because fifty devices do not fail in the same second.",
       "gridPos": {
         "h": 10,
-        "w": 7,
+        "w": 6,
         "x": 0,
         "y": 16
       },
@@ -708,8 +708,8 @@
       "description": "Counts over the whole window, not the latest reading. Ranking on a single most-recent reading made the list flicker between 8 and 15 patients every few seconds, because one reading is not a patient's condition. Bradycardia is deliberately not ranked here: it tracks resting baseline, so a patient who normally sits at 60 bpm logs hundreds of crossings without deteriorating. A real system would alert on change from that patient's own baseline rather than a fixed threshold.",
       "gridPos": {
         "h": 10,
-        "w": 9,
-        "x": 7,
+        "w": 11,
+        "x": 6,
         "y": 16
       },
       "datasource": {
@@ -726,7 +726,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "critical"
+              "options": "critical readings"
             },
             "properties": [
               {
@@ -769,18 +769,6 @@
                 "value": "bpm"
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "lowest"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bpm"
-              }
-            ]
           }
         ]
       },
@@ -793,7 +781,7 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id AS patient, count(*) FILTER (WHERE hr_class='critical') AS critical, count(*) FILTER (WHERE hr_class='tachycardia') AS tachycardia, max(heart_rate) AS peak, min(heart_rate) AS lowest, max(event_time) FILTER (WHERE hr_class IN ('critical','tachycardia')) AS last_episode FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1 HAVING count(*) FILTER (WHERE hr_class IN ('critical','tachycardia')) > 0 ORDER BY critical DESC, tachycardia DESC, peak DESC"
+          "rawSql": "SELECT customer_id AS patient, count(*) FILTER (WHERE hr_class='critical') AS \"critical readings\", count(*) FILTER (WHERE hr_class='tachycardia') AS \"tachycardia readings\", max(heart_rate) AS \"peak\", max(event_time) FILTER (WHERE hr_class IN ('critical','tachycardia')) AS \"last episode\" FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1 HAVING count(*) FILTER (WHERE hr_class IN ('critical','tachycardia')) > 0 ORDER BY 2 DESC, 3 DESC, 4 DESC"
         }
       ]
     },
@@ -804,8 +792,8 @@
       "description": "Every patient. How the whole population is distributed over time \u2014 not the selected patient.",
       "gridPos": {
         "h": 10,
-        "w": 8,
-        "x": 16,
+        "w": 7,
+        "x": 17,
         "y": 16
       },
       "datasource": {
