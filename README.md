@@ -214,22 +214,46 @@ were ever written.
 never mean data loss. The topic exists so a fixed consumer can replay poison messages
 without re-reading the whole log.
 
-### The chart plots the range, not the average
+### The dashboard answers two questions, and says which is which
 
-The heart rate panel draws the highest and lowest reading in each interval. It
-started as an average, which was wrong in a way worth explaining, because the
-dashboard looked perfectly healthy while it was happening.
+It is laid out as four bands, because a monitoring screen is read top to bottom
+under time pressure:
 
-Readings arrive faster than the chart has pixels, so every point covers an interval
-holding many readings. Averaged, one minute of this data plots **73 bpm** — while
-the readings inside it span **20 to 250**. A patient at 250 was drawn as normal, on
-the same screen as a table listing them as critical.
+1. **Fleet** — patients monitored, patients needing attention, ingest latency,
+   rejections. `Patients needing attention` counts *people whose latest reading is
+   abnormal*, not readings, so one noisy sensor cannot inflate it.
+2. **Who needs attention** — every patient currently outside the normal band,
+   ordered critical → tachycardia → bradycardia and then by distance from normal.
+   Sorted by time, a patient at 235 sat below a queue of resting adults at 56.
+3. **Selected patient** — their actual readings in order, plus highest, lowest,
+   average, count and abnormal count for the window.
+4. **Pipeline health** — classification mix and every rejection with its offset.
 
-Taking the maximum instead would have fixed tachycardia and broken bradycardia: a
+The patient selector is single-select on purpose. Earlier it defaulted to *All* and
+filtered exactly one of eight panels, so selecting a patient changed almost nothing
+on screen while appearing to. Now every panel is either scoped to the selected
+patient and titled with their id, or explicitly labelled as fleet-wide.
+
+### The patient chart plots readings, not an aggregate
+
+One patient produces about one reading a second, so fifteen minutes is under a
+thousand points — few enough to draw every one. The panel does exactly that, and
+nothing is aggregated away.
+
+It began as an average per interval, which was wrong in a way worth keeping in the
+record. Readings arrive faster than a chart has pixels, so each point covered an
+interval holding dozens of them. Averaged, one minute of this data plots **73 bpm**
+while the readings inside span **20 to 250** — a patient at 250 drawn as normal, on
+the same screen as a table listing them critical.
+
+Switching to the maximum would have fixed that and broken the opposite case: a
 bucket of 31, 72, 75, 80 plots 80, and the patient at 31 disappears. This system
-alerts on both ends, so the chart has to show both. Two series per customer, `peak`
-and `low`, and the threshold bands at 60, 100 and 180 now get crossed rather than
-hovered under.
+alerts on both ends, so neither aggregate is safe — which is why the patient panel
+plots the readings themselves.
+
+The summary beside it shows highest, lowest and average together for the same
+reason: for the patient above, the average is 79 and the highest is 250. Either
+number alone misleads.
 
 The general point: an aggregate chosen for a dashboard is a claim about which
 information you are willing to lose. For vitals, the average is the one value you

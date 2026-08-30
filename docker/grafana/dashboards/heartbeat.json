@@ -16,7 +16,7 @@
     "list": [
       {
         "name": "customer",
-        "label": "Customer",
+        "label": "Patient",
         "type": "query",
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -24,25 +24,40 @@
         },
         "query": "SELECT DISTINCT customer_id FROM heartbeat_readings ORDER BY 1",
         "refresh": 2,
-        "multi": true,
-        "includeAll": true,
+        "multi": false,
+        "includeAll": false,
+        "sort": 1,
         "current": {
-          "text": "All",
-          "value": "$__all"
+          "text": "cust-0001",
+          "value": "cust-0001"
         }
       }
     ]
   },
   "panels": [
     {
+      "id": 100,
+      "type": "row",
+      "title": "Fleet \u2014 all patients, ignores the patient selector",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
       "id": 1,
       "type": "stat",
-      "title": "Readings stored",
+      "title": "Patients monitored",
+      "description": "Distinct patients that reported in the selected time range.",
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -54,7 +69,16 @@
             "mode": "fixed",
             "fixedColor": "text"
           },
-          "unit": "short"
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -65,7 +89,9 @@
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "graphMode": "none"
       },
       "targets": [
         {
@@ -73,20 +99,20 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time)"
+          "rawSql": "SELECT count(DISTINCT customer_id) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time)"
         }
       ]
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Alerting readings",
-      "description": "Readings outside the normal band. Real data, not sensor faults.",
+      "title": "Patients needing attention",
+      "description": "Patients whose most recent reading is outside the normal band. Counts people, not readings.",
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 1
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -95,7 +121,8 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "thresholds",
+            "fixedColor": "text"
           },
           "unit": "short",
           "thresholds": {
@@ -108,6 +135,10 @@
               {
                 "color": "orange",
                 "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
               }
             ]
           }
@@ -121,7 +152,9 @@
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "graphMode": "none"
       },
       "targets": [
         {
@@ -129,20 +162,20 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND hr_class <> 'normal'"
+          "rawSql": "SELECT count(*) AS value FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal'"
         }
       ]
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Rejected messages",
-      "description": "Failed the contract or were physically impossible. Kept, not discarded.",
+      "title": "Ingest latency p95",
+      "description": "Producer clock to durable row. How far behind reality the dashboard is.",
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -151,9 +184,11 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "thresholds",
+            "fixedColor": "text"
           },
-          "unit": "short",
+          "unit": "ms",
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -162,8 +197,8 @@
                 "value": null
               },
               {
-                "color": "red",
-                "value": 1
+                "color": "orange",
+                "value": 2000
               }
             ]
           }
@@ -177,52 +212,9 @@
           ],
           "fields": "",
           "values": false
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS value FROM heartbeat_rejects WHERE $__timeFilter(rejected_at)"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Ingest latency (p95)",
-      "description": "ingested_at - event_time: producer clock to durable row.",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "heartbeat-pg"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "unit": "ms",
-          "decimals": 0
         },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
+        "textMode": "auto",
+        "graphMode": "none"
       },
       "targets": [
         {
@@ -235,14 +227,15 @@
       ]
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Heart rate range by customer",
+      "id": 4,
+      "type": "stat",
+      "title": "Messages rejected",
+      "description": "Failed the contract or were impossible. Kept in heartbeat_rejects, never silently dropped.",
       "gridPos": {
-        "h": 10,
-        "w": 16,
-        "x": 0,
-        "y": 4
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -250,86 +243,71 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bpm",
-          "min": 30,
-          "max": 220,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": true,
-            "thresholdsStyle": {
-              "mode": "dashed"
-            },
-            "gradientMode": "scheme"
+          "color": {
+            "mode": "thresholds",
+            "fixedColor": "text"
           },
+          "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "green",
                 "value": null
               },
               {
-                "color": "green",
-                "value": 60
-              },
-              {
                 "color": "orange",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 180
+                "value": 1
               }
             ]
-          },
-          "color": {
-            "mode": "thresholds"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto",
+        "graphMode": "none"
       },
       "targets": [
         {
           "refId": "A",
-          "format": "time_series",
+          "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), customer_id || ' peak' AS metric, max(heart_rate) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id IN ($customer) GROUP BY 1, 2 ORDER BY 1"
-        },
-        {
-          "refId": "B",
-          "format": "time_series",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), customer_id || ' low' AS metric, min(heart_rate) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id IN ($customer) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT count(*) AS value FROM heartbeat_rejects WHERE $__timeFilter(rejected_at)"
         }
-      ],
-      "description": "Highest and lowest reading in each interval, not the average. Averaging hides both ends: in one minute of this data the readings span 20 to 250 bpm while the mean sits at 73, so a patient at 250 would be drawn as normal."
+      ]
     },
     {
-      "id": 6,
+      "id": 101,
+      "type": "row",
+      "title": "Who needs attention",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
       "type": "table",
-      "title": "Patients currently outside the normal band",
-      "description": "Latest reading per customer, abnormal ones only.",
+      "title": "Patients needing attention \u2014 most severe first",
+      "description": "Each patient's latest reading, abnormal ones only, ordered critical \u2192 tachycardia \u2192 bradycardia and then by distance from normal.",
       "gridPos": {
         "h": 10,
-        "w": 8,
-        "x": 16,
-        "y": 4
+        "w": 10,
+        "x": 0,
+        "y": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -356,15 +334,18 @@
                     "options": {
                       "critical": {
                         "color": "red",
-                        "index": 0
+                        "index": 0,
+                        "text": "CRITICAL"
                       },
                       "tachycardia": {
                         "color": "orange",
-                        "index": 1
+                        "index": 1,
+                        "text": "tachycardia"
                       },
                       "bradycardia": {
                         "color": "blue",
-                        "index": 2
+                        "index": 2,
+                        "text": "bradycardia"
                       }
                     }
                   }
@@ -373,21 +354,28 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-text"
+                  "type": "color-background",
+                  "mode": "basic"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "heart_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bpm"
               }
             ]
           }
         ]
       },
       "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "event_time",
-            "desc": true
-          }
-        ]
+        "showHeader": true
       },
       "targets": [
         {
@@ -395,19 +383,20 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT * FROM (SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC) latest WHERE hr_class <> 'normal' ORDER BY event_time DESC"
+          "rawSql": "SELECT customer_id AS patient, heart_rate, hr_class, event_time AS last_reading FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal' ORDER BY CASE hr_class WHEN 'critical' THEN 1 WHEN 'tachycardia' THEN 2 WHEN 'bradycardia' THEN 3 ELSE 4 END, abs(heart_rate - 80) DESC"
         }
       ]
     },
     {
-      "id": 7,
+      "id": 6,
       "type": "timeseries",
-      "title": "Readings by classification",
+      "title": "Fleet readings by classification",
+      "description": "Every patient. How the whole population is distributed over time \u2014 not the selected patient.",
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 14
+        "h": 10,
+        "w": 14,
+        "x": 10,
+        "y": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -418,8 +407,8 @@
           "unit": "short",
           "custom": {
             "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 70,
+            "lineWidth": 0,
+            "fillOpacity": 80,
             "stacking": {
               "mode": "normal"
             },
@@ -511,15 +500,258 @@
       ]
     },
     {
-      "id": 8,
-      "type": "table",
-      "title": "Why messages were rejected",
-      "description": "Why each message failed, and where in the log it came from.",
+      "id": 102,
+      "type": "row",
+      "title": "Selected patient \u2014 $customer",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "$customer \u2014 every reading",
+      "description": "Actual readings in order, not an aggregate. One patient produces roughly one reading a second, so nothing is averaged away.",
       "gridPos": {
         "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 14
+        "w": 16,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bpm",
+          "min": 0,
+          "max": 260,
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "spanNulls": true,
+            "gradientMode": "scheme",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 60
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT event_time AS time, heart_rate AS \"bpm\" FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id = '$customer' ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "$customer \u2014 in this window",
+      "description": "Summary for the selected patient only.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 17
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "highest"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bpm"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 100
+                    },
+                    {
+                      "color": "red",
+                      "value": 180
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lowest"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bpm"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 60
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "abnormal readings"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT max(heart_rate) AS \"highest\", min(heart_rate) AS \"lowest\", round(avg(heart_rate)) AS \"average\", count(*) AS \"readings\", count(*) FILTER (WHERE hr_class <> 'normal') AS \"abnormal readings\" FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id = '$customer'"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Pipeline health \u2014 all patients",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Why messages were rejected",
+      "description": "Every rejection with its reason and the exact partition and offset it came from.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 27
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
