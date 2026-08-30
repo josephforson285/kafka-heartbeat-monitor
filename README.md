@@ -489,7 +489,9 @@ storage and retries. Nothing on the Kafka side can do it for you.
 
 The figures above are from the run whose logs are committed in
 [docs/sample_output/](docs/sample_output/); re-running the script regenerates both
-together. Alongside them is
+together. Screenshots of the running system are in
+[docs/screenshots/](docs/screenshots/), kept separate because the demo script
+overwrites everything in `sample_output/`. Alongside the logs is
 [database-contents.txt](docs/sample_output/database-contents.txt) — the table
 definition, the classification breakdown, recent rows with the partition and offset
 they came from, and the count that matters:
