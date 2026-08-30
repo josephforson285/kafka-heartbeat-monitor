@@ -286,220 +286,6 @@
       ]
     },
     {
-      "id": 101,
-      "type": "row",
-      "title": "Who needs attention",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 5
-      },
-      "panels": []
-    },
-    {
-      "id": 5,
-      "type": "table",
-      "title": "Patients needing attention \u2014 most severe first",
-      "description": "Each patient's latest reading, abnormal ones only, ordered critical \u2192 tachycardia \u2192 bradycardia and then by distance from normal.",
-      "gridPos": {
-        "h": 10,
-        "w": 10,
-        "x": 0,
-        "y": 6
-      },
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "heartbeat-pg"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "hr_class"
-            },
-            "properties": [
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "critical": {
-                        "color": "red",
-                        "index": 0,
-                        "text": "CRITICAL"
-                      },
-                      "tachycardia": {
-                        "color": "orange",
-                        "index": 1,
-                        "text": "tachycardia"
-                      },
-                      "bradycardia": {
-                        "color": "blue",
-                        "index": 2,
-                        "text": "bradycardia"
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "heart_rate"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bpm"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT customer_id AS patient, heart_rate, hr_class, event_time AS last_reading FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal' ORDER BY CASE hr_class WHEN 'critical' THEN 1 WHEN 'tachycardia' THEN 2 WHEN 'bradycardia' THEN 3 ELSE 4 END, abs(heart_rate - 80) DESC"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Fleet readings by classification",
-      "description": "Every patient. How the whole population is distributed over time \u2014 not the selected patient.",
-      "gridPos": {
-        "h": 10,
-        "w": 14,
-        "x": 10,
-        "y": 6
-      },
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "heartbeat-pg"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 0,
-            "fillOpacity": 80,
-            "stacking": {
-              "mode": "normal"
-            },
-            "showPoints": "never"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "normal"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "bradycardia"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "tachycardia"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "critical"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), hr_class AS metric, count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1, 2 ORDER BY 1"
-        }
-      ]
-    },
-    {
       "id": 102,
       "type": "row",
       "title": "Selected patient \u2014 $customer",
@@ -508,7 +294,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 5
       },
       "panels": []
     },
@@ -521,7 +307,7 @@
         "h": 9,
         "w": 16,
         "x": 0,
-        "y": 17
+        "y": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -599,7 +385,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 17
+        "y": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -726,6 +512,220 @@
           "editorMode": "code",
           "rawQuery": true,
           "rawSql": "SELECT max(heart_rate) AS \"highest\", min(heart_rate) AS \"lowest\", round(avg(heart_rate)) AS \"average\", count(*) AS \"readings\", count(*) FILTER (WHERE hr_class <> 'normal') AS \"abnormal readings\" FROM heartbeat_readings WHERE $__timeFilter(event_time) AND customer_id = '$customer'"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Who needs attention",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Patients needing attention \u2014 most severe first",
+      "description": "Each patient's latest reading, abnormal ones only, ordered critical \u2192 tachycardia \u2192 bradycardia and then by distance from normal.",
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hr_class"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "color": "red",
+                        "index": 0,
+                        "text": "CRITICAL"
+                      },
+                      "tachycardia": {
+                        "color": "orange",
+                        "index": 1,
+                        "text": "tachycardia"
+                      },
+                      "bradycardia": {
+                        "color": "blue",
+                        "index": 2,
+                        "text": "bradycardia"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "heart_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bpm"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT customer_id AS patient, heart_rate, hr_class, event_time AS last_reading FROM ( SELECT DISTINCT ON (customer_id) customer_id, heart_rate, hr_class, event_time FROM heartbeat_readings WHERE $__timeFilter(event_time) ORDER BY customer_id, event_time DESC ) l WHERE hr_class <> 'normal' ORDER BY CASE hr_class WHEN 'critical' THEN 1 WHEN 'tachycardia' THEN 2 WHEN 'bradycardia' THEN 3 ELSE 4 END, abs(heart_rate - 80) DESC"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Fleet readings by classification",
+      "description": "Every patient. How the whole population is distributed over time \u2014 not the selected patient.",
+      "gridPos": {
+        "h": 10,
+        "w": 14,
+        "x": 10,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "heartbeat-pg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "stacking": {
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "normal"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bradycardia"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tachycardia"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(event_time, $__interval), hr_class AS metric, count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) GROUP BY 1, 2 ORDER BY 1"
         }
       ]
     },

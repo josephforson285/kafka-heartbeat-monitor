@@ -222,11 +222,12 @@ under time pressure:
 1. **Fleet** — patients monitored, patients needing attention, ingest latency,
    rejections. `Patients needing attention` counts *people whose latest reading is
    abnormal*, not readings, so one noisy sensor cannot inflate it.
-2. **Who needs attention** — every patient currently outside the normal band,
+2. **Selected patient** — their actual readings in order, plus highest, lowest,
+   average, count and abnormal count for the window. This sits directly under the
+   fleet summary because it is what someone opens the dashboard to look at.
+3. **Who needs attention** — every patient currently outside the normal band,
    ordered critical → tachycardia → bradycardia and then by distance from normal.
    Sorted by time, a patient at 235 sat below a queue of resting adults at 56.
-3. **Selected patient** — their actual readings in order, plus highest, lowest,
-   average, count and abnormal count for the window.
 4. **Pipeline health** — classification mix and every rejection with its offset.
 
 The patient selector is single-select on purpose. Earlier it defaulted to *All* and
