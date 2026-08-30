@@ -171,8 +171,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Critical readings",
-      "description": "Readings above the critical threshold in this window. Counted as readings, not patients: this generator spreads anomalies evenly across the fleet, so a patient count would read 50 of 50 and tell you nothing. Real distress concentrates in a few people, and there a patient count would be the right measure.",
+      "title": "Critical readings / min",
+      "description": "Rate over the last minute, deliberately not a count over the dashboard's time range: a count triples when you switch the picker from 5 minutes to 15 without anything having changed, so no fixed threshold can mean anything. The bands are the same calibration as the alert \u2014 baseline is 36.6 a minute with a deviation of 14.9, amber above two deviations, red at 120 where the alert fires. It read red permanently before this, while the alert sat quiet, and they cannot contradict each other now.",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -199,11 +199,11 @@
               },
               {
                 "color": "orange",
-                "value": 1
+                "value": 66
               },
               {
                 "color": "red",
-                "value": 5
+                "value": 120
               }
             ]
           }
@@ -227,7 +227,7 @@
           "format": "table",
           "editorMode": "code",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS value FROM heartbeat_readings WHERE $__timeFilter(event_time) AND hr_class = 'critical'"
+          "rawSql": "SELECT count(*) AS value FROM heartbeat_readings WHERE event_time > now() - interval '1 minute' AND hr_class = 'critical'"
         }
       ]
     },

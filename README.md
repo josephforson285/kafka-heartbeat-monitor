@@ -252,6 +252,22 @@ filtered exactly one of eight panels, so selecting a patient changed almost noth
 on screen while appearing to. Now every panel is either scoped to the selected
 patient and titled with their id, or explicitly labelled as fleet-wide.
 
+### A tile and an alert that disagree
+
+After calibrating the alert I left the `Critical readings` tile counting over the
+dashboard's time range with red at five or more. It sat permanently red at 224 while
+the alert, looking at the same system, reported everything normal at 43 a minute.
+One of them had to be wrong and it was the tile.
+
+A count over the picker's range cannot carry a threshold at all: switch from five
+minutes to fifteen and it triples with nothing having changed. The tile is now a
+rate over the last minute using the alert's own calibration — amber above two
+standard deviations, red at 120 where the alert fires — so the two cannot contradict
+each other again.
+
+The wider point is that calibrating one indicator and not its neighbour leaves the
+dashboard less trustworthy than before, because now they disagree in front of you.
+
 ### An alert calibrated against nothing fires against everything
 
 The alert first asked whether any patient had a critical reading in the last five
