@@ -187,6 +187,24 @@ The internal offsets and transaction-state topics are replicated too. Leaving th
 at 1 while the data topic is replicated survives a broker loss but forgets where the
 consumer had got to.
 
+### Mounting a volume is not the same as using it
+
+The brokers mount `kafka1_data:/var/lib/kafka/data`, which is the path the Confluent
+image uses. This is the Apache image, and it defaults `log.dirs` to
+`/tmp/kraft-broker-logs` — inside the container's own writable layer. The volume was
+mounted and empty while every message went somewhere `docker compose down` throws
+away, so a restart came back with no topics at all and the producer failed with
+`UNKNOWN_TOPIC_OR_PART`.
+
+`KAFKA_LOG_DIRS` now points at the mounted path. Note that
+`/opt/kafka/config/broker.properties` still reads `/tmp/kraft-broker-logs` inside
+the container — the entrypoint applies the environment without rewriting that file,
+so the config on disk is not evidence of where the data goes. The volume contents
+are: `__cluster_metadata-0`, `heartbeat.raw-0`, `heartbeat.dlq-0`.
+
+Verified by cycling the stack: 300 messages on `heartbeat.raw` before
+`docker compose down`, 300 after `up`, replication intact.
+
 ### Topics are never created by accident
 
 `auto.create.topics.enable` is off. Left on — as it is by default — producing to a

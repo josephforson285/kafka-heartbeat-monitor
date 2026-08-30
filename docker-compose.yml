@@ -37,6 +37,12 @@ x-kafka-env: &kafka-env
   # one partition, no replication — and real data lands in it unnoticed.
   KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
 
+  # Without this the broker writes to /tmp/kraft-broker-logs, its default in this
+  # image, and the mounted volume below sits empty — so every `compose down` threw
+  # away every topic. /var/lib/kafka/data is the Confluent image's convention, not
+  # this one's, and mounting it is not enough on its own.
+  KAFKA_LOG_DIRS: /var/lib/kafka/data
+
   KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
   KAFKA_LOG_RETENTION_HOURS: 168
   # bounded so three JVMs stay predictable on a laptop and on a CI runner

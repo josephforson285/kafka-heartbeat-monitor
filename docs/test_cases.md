@@ -132,6 +132,7 @@ validation would still be stopped.
 | E33 | Field type changed | `heart_rate` as `"72"` | Rejected: `heart_rate must be an integer` | Pass |
 | E34 | Field renamed | `bpm` in place of `heart_rate` | Rejected: `missing field(s): heart_rate` | Pass |
 | E35 | Field meaning changed | Structurally valid payload, different semantics | **Stored, undetected** — the known gap | Pass |
+| E36 | Kafka data survives a restart | 300 messages, `docker compose down` then `up` | Topics present, 300 messages still there, ISR complete | Pass |
 
 E19 is the claim; E20 and E21 are why it held. Without them, "ingestion continued"
 could just mean nothing was actually broken.
